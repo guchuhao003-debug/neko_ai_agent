@@ -32,6 +32,7 @@ public class ToolRegistration {
         ResourceDownloadTool resourceDownloadTool = new ResourceDownloadTool();
         TerminalOperationTool terminalOperationTool = new TerminalOperationTool();
         PDFGenerationTool pdfGenerationTool = new PDFGenerationTool();
+        QQEmailSenderTool qqEmailSenderTool = new QQEmailSenderTool();
         // ToolCallbacks.from() : 把一系列工具类对象转换为工具
         // 适配器模式的应用： ToolCallbasks.from() 可以看作是一种适配器，它将各种不同的工具类转换为统一的 ToolCallback 数组
         // 使得系统能够以一致的方式处理它们。
@@ -41,7 +42,8 @@ public class ToolRegistration {
                 webScrapingTool,
                 resourceDownloadTool,
                 terminalOperationTool,
-                pdfGenerationTool
+                pdfGenerationTool,
+                qqEmailSenderTool
         );
     }
 

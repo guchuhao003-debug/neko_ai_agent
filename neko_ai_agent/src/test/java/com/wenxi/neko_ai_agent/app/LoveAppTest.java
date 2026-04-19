@@ -83,6 +83,12 @@ class LoveAppTest {
 
         // 测试 PDF 生成
         testMessage("生成一份‘七夕约会计划’PDF，包含餐厅预订、活动流程和礼物清单");
+
+    }
+
+    @Test
+    void testTool() {
+        testMessage("发送邮件给 Tom 的 QQ 邮箱（2836143370）, 主题是七夕，内容是七夕的礼物");
     }
 
     private void testMessage(String message) {
