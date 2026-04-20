@@ -3,6 +3,12 @@ spring:
     name: neko_ai_agent
   profiles:
     active: local
+  # MCP 配置
+  ai:
+    mcp:
+      client:
+        stdio:
+          servers-configuration: classpath:mcp-servers.json
 server:
   port: 8123
   servlet:
