@@ -50,14 +50,15 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Spring AI Alibaba : https://java2ai.com/docs/1.0.0-M6.1/overview/?spm=5176.29160081.0.0.2856aa5cUJV25m -->
+
         <dependency>
-            <groupId>com.alibaba.cloud.ai</groupId>
-            <artifactId>spring-ai-alibaba-starter</artifactId>
-            <version>1.0.0-M6.1</version>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-mcp-server-webmvc-spring-boot-starter</artifactId>
+            <version>1.0.0-M6</version>
         </dependency>
 
     </dependencies>
+
 
     <build>
         <plugins>
@@ -84,6 +85,10 @@
                             <goal>compile</goal>
                         </goals>
                         <configuration>
+                            <source>21</source>
+                            <target>21</target>
+                            <executable>D:/software/Java/jdk21//bin/javac</executable>
+                            <fork>true</fork>
                             <annotationProcessorPaths>
                                 <path>
                                     <groupId>org.projectlombok</groupId>

@@ -7,8 +7,19 @@
         "@amap/amap-maps-mcp-server"
       ],
       "env": {
-        "AMAP_MAPS_API_KEY": "bc19ed33775c8b19903e98a1b3b947f2"
+        "AMAP_MAPS_API_KEY": "****************************"
       }
+    },
+    "neko-image-search-mcp-server": {
+      "command": "java",
+      "args": [
+        "-Dspring.ai.mcp.server.stdio=true",
+        "-Dspring.main.web-application-type=none",
+        "-Dlogging.pattern.console=",
+        "-jar",
+        "neko-image-search-mcp-server/target/neko-image-search-mcp-server-0.0.1-SNAPSHOT.jar"
+      ],
+      "env": {}
     }
   }
 }
