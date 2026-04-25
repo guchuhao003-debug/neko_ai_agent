@@ -5,12 +5,12 @@ public interface GlobalConstant {
     /**
      * GITHUB_TOKEN
      */
-    String GITHUB_TOKEN = "#############################";
+    String GITHUB_TOKEN = "###########################";
 
     /**
      * GITHUB_OWNER
      */
-    String GITHUB_OWNER = "##############";
+    String GITHUB_OWNER = "######################";
 
 
 

@@ -25,7 +25,7 @@ class GitHubDocumentLoaderTest {
 
         // 推荐使用 GitHubBuilder
         GitHub github = new GitHubBuilder().withOAuthToken(token).build();
-        GitHubDocumentLoader gitHubDocumentLoader = GitHubDocumentLoader.builder()
+        GitHubDocumentReader gitHubDocumentLoader = GitHubDocumentReader.builder()
                 .gitHub(github)
                 .owner(GlobalConstant.GITHUB_OWNER)
                 .repo("hello-GithubDocumentLoader")
@@ -41,4 +41,61 @@ class GitHubDocumentLoaderTest {
         Assertions.assertNotNull(repositoryInfo);
 
     }
+
+    // 指定特定文件
+    @Test
+    void testWithPointer() throws IOException {
+
+        /**
+         * 获取 Token
+         */
+        String token = GlobalConstant.GITHUB_TOKEN;
+
+        // 创建 gitHub 客户端
+        GitHub gitHub = new GitHubBuilder().withOAuthToken(token).build();
+        // 使用 Builder 模式创建 DocumentReader
+        GitHubDocumentReader reader = GitHubDocumentReader.builder()
+                .gitHub(gitHub)
+                .owner(GlobalConstant.GITHUB_OWNER)
+                .repo("hello-GithubDocumentLoader")
+                .branch("main")
+                .withPointer("test.md")   // 指定特定文件
+                .build();
+
+        // 获取文档列表
+        List<Document> documents = reader.get();
+        Assertions.assertNotNull(documents);
+    }
+
+    @Test
+    void testWithReader() throws IOException {
+
+        /**
+         * 获取 Token
+         */
+        String token = GlobalConstant.GITHUB_TOKEN;
+
+        // 创建 gitHub 客户端
+        GitHub gitHub = new GitHubBuilder().withOAuthToken(token).build();
+        // 使用 Builder 模式创建 DocumentReader
+        GitHubDocumentReader reader = GitHubDocumentReader.builder()
+                .gitHub(gitHub)
+                .owner(GlobalConstant.GITHUB_OWNER)
+                .repo("hello-GithubDocumentLoader")
+                .branch("main")
+                .withStartPath("/")
+                .withFileExtensions("md")   // 指定文件扩展名
+                .withAdditionalMetadata(
+                        Map.of("author", "wenxi", "date", "2026-4-25")
+                )   // 添加额外的元数据
+
+                .build();
+
+        // 获取文档列表
+        List<Document> documents = reader.get();
+        Assertions.assertNotNull(documents);
+    }
+
+
+
 }
