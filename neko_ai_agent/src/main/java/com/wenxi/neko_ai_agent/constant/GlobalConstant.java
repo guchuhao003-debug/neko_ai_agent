@@ -10,7 +10,7 @@ public interface GlobalConstant {
     /**
      * GITHUB_OWNER
      */
-    String GITHUB_OWNER = "guchuhao003-debug";
+    String GITHUB_OWNER = "##############";
 
 
 
