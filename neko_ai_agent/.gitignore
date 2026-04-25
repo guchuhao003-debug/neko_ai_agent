@@ -2,7 +2,6 @@
 application-local.yml
 application-prod.yml
 tmp
-GlobalConstant.java
 
 HELP.md
 target/

@@ -5,7 +5,7 @@ public interface GlobalConstant {
     /**
      * GITHUB_TOKEN
      */
-    String GITHUB_TOKEN = "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";
+    String GITHUB_TOKEN = "#############################";
 
     /**
      * GITHUB_OWNER
