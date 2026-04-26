@@ -8,6 +8,6 @@ public interface ApiConstant {
     /**
      * Pexels API 密钥
      */
-    String PexelsApiKey = "#########################################";
+    String PexelsApiKey = "#################################";
 
 }
