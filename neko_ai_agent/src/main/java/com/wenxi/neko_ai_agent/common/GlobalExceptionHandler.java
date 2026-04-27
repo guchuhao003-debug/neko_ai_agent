@@ -3,6 +3,7 @@ package com.wenxi.neko_ai_agent.common;
 import com.wenxi.neko_ai_agent.exception.BaseResponse;
 import com.wenxi.neko_ai_agent.exception.BusinessException;
 import com.wenxi.neko_ai_agent.exception.ErrorCode;
+import io.swagger.v3.oas.annotations.Hidden;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  */
 @RestControllerAdvice
 @Slf4j
+@Hidden
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
