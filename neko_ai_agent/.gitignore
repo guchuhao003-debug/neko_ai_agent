@@ -3,7 +3,7 @@ application-local.yml
 application-prod.yml
 tmp
 GlobalConstant.java
-
+CLAUDE.md
 HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
