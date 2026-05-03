@@ -23,6 +23,9 @@ import java.util.List;
 import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY;
 import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor.CHAT_MEMORY_RETRIEVE_SIZE_KEY;
 
+/**
+ * AI 恋爱大师应用
+ */
 @Component
 @Slf4j
 public class LoveApp {
@@ -92,7 +95,7 @@ public class LoveApp {
     }
 
 
-    record LoveReport(String title, List<String>suggestions) {}
+    record LoveReport(String title, List<String> suggestions) {}
 
     /**
      * AI 恋爱报告功能 （结构化输出）

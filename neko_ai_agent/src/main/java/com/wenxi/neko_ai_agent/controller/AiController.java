@@ -2,6 +2,7 @@ package com.wenxi.neko_ai_agent.controller;
 
 import com.wenxi.neko_ai_agent.agent.NekoManus;
 import com.wenxi.neko_ai_agent.app.LoveApp;
+import com.wenxi.neko_ai_agent.app.PetApp;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
@@ -23,10 +24,14 @@ public class AiController {
     private LoveApp loveApp;
 
     @Resource
+    private PetApp petApp;
+
+    @Resource
     private ChatModel dashscopeChatModel;
 
     @Resource
     private ToolCallback[] allTools;
+
 
 
     /**
@@ -85,6 +90,29 @@ public class AiController {
                     }
                 }, sseEmitter::completeWithError, sseEmitter::complete);
         return sseEmitter;
+    }
+
+
+    /**
+     * 同步调用 AI 养宠大师应用 （输出养宠详细报告）
+     * @param message
+     * @param chatId
+     * @return
+     */
+    @GetMapping("/pet_app/chat/sync")
+    public PetApp.PetReport doChatWithPetAppSync(String message, String chatId) {
+        return petApp.doChatWithReport(message, chatId);
+    }
+
+    /**
+     * 异步调用 养宠大师应用 （基础对话  + SSE）
+     * @param message
+     * @param chatId
+     * @return
+     */
+    @GetMapping(value = "/pet_app/chat/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> doChatWithPetAppSSE (String message, String chatId) {
+        return petApp.doChatStream(message,chatId);
     }
 
     /**

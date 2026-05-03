@@ -1,0 +1,22 @@
+- main [ref=e4]:
+  - generic [ref=e5]:
+    - link "‹ 返回主页" [ref=e6] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e7]: ‹
+      - generic [ref=e8]: 返回主页
+    - generic [ref=e9]:
+      - generic [ref=e10]: 会话名称：恋爱咨询 · 初次见面建议
+      - generic [ref=e11]: ▾
+    - generic [ref=e12]:
+      - generic [ref=e13]: 会话 ID：0f6e83f1...084c
+      - button "复制会话ID" [ref=e14] [cursor=pointer]:
+        - img [ref=e15]
+  - generic [ref=e19]: 发送第一条消息，开始本次智能对话
+  - generic [ref=e20]:
+    - generic [ref=e21]:
+      - button "附件" [ref=e22] [cursor=pointer]:
+        - img [ref=e23]
+      - textbox "输入消息..." [ref=e25]
+      - button "发送" [disabled] [ref=e26]:
+        - img [ref=e27]
+    - paragraph [ref=e30]: Enter 发送，Shift + Enter 换行
