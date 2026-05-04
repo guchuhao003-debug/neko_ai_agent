@@ -3,6 +3,8 @@ import HomePage from '../views/HomePage.vue'
 import LoveChatPage from '../views/LoveChatPage.vue'
 import ManusChatPage from '../views/ManusChatPage.vue'
 import PetChatPage from '../views/PetChatPage.vue'
+import LoginPage from '../views/LoginPage.vue'
+import RegisterPage from '../views/RegisterPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -12,9 +14,27 @@ const router = createRouter({
       name: 'home',
       component: HomePage,
       meta: {
-        title: 'Neko AI Agent - 科技感 AI 智能体平台',
+        title: 'Neko AI Agent',
         description:
           'Neko AI Agent 提供恋爱专家智能体与超级智能体，支持流式实时对话与沉浸式科技风交互体验。',
+      },
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: LoginPage,
+      meta: {
+        title: '登录 - Neko AI Agent',
+        description: '登录 Neko AI Agent 智能体平台。',
+      },
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: RegisterPage,
+      meta: {
+        title: '注册 - Neko AI Agent',
+        description: '注册 Neko AI Agent 智能体平台账号。',
       },
     },
     {

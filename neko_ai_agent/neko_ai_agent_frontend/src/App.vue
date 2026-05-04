@@ -1,10 +1,13 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import NavBar from './components/NavBar.vue'
 
 const route = useRoute()
 const year = new Date().getFullYear()
-const isChatPage = computed(() => route.name === 'love' || route.name === 'manus')
+const isChatPage = computed(() => route.name === 'love' || route.name === 'manus' || route.name === 'pet')
+const isAuthPage = computed(() => route.name === 'login' || route.name === 'register')
+const showNavbar = computed(() => !isChatPage.value && !isAuthPage.value)
 
 const showContactModal = ref(false)
 
@@ -24,8 +27,10 @@ const closeContactModal = () => {
       <div v-for="i in 60" :key="i" class="sparkle-particle" />
     </div>
 
+    <NavBar v-if="showNavbar" />
+
     <router-view />
-    <footer v-if="!isChatPage" class="site-footer">
+    <footer v-if="!isChatPage && !isAuthPage" class="site-footer">
       <div class="site-footer-inner">
         <div class="footer-content">
           <div class="footer-left">

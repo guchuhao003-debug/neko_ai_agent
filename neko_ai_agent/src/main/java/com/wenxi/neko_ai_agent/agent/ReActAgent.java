@@ -1,5 +1,7 @@
 package com.wenxi.neko_ai_agent.agent;
 
+import com.wenxi.neko_ai_agent.exception.BusinessException;
+import com.wenxi.neko_ai_agent.exception.ErrorCode;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
@@ -37,8 +39,7 @@ public abstract class ReActAgent extends BaseAgent {
             return act();
         } catch (Exception e) {
             // 记录异常日志
-            e.printStackTrace();
-            return "步骤执行失败：" + e.getMessage();
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"ReAct步骤执行失败：" + e.getMessage());
         }
     }
 }

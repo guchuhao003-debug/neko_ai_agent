@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Vue 3 + Vite frontend for **Neko AI Agent**, a dual-AI-agent platform with SSE streaming chat.
 
-- **Home** (`/`): App switching page with two AI agent cards
+- **Home** (`/`): App switching page with three AI agent cards
 - **AI 恋爱大师** (`/love`): Chat with `chatId` session support, single AI bubble per turn
+- **AI 宠物专家** (`/pet`): Chat with `chatId` session support, single AI bubble per turn
 - **AI 超级智能体** (`/manus`): Step-based chat, each step gets its own AI bubble
 
 ## Commands
@@ -24,6 +25,9 @@ Backend runs at `http://localhost:8123`, API base: `http://localhost:8123/api`.
 ### Backend API Endpoints
 
 - **AI 恋爱大师 SSE**: `GET /api/ai/love_app/chat/sse?message=xxx&chatId=xxx`
+  - Requires `chatId` parameter for session tracking
+  - Returns SSE stream with AI responses
+- **AI 宠物专家 SSE**: `GET /api/ai/pet_app/chat/sse?message=xxx&chatId=xxx`
   - Requires `chatId` parameter for session tracking
   - Returns SSE stream with AI responses
 - **AI 超级智能体 SSE**: `GET /api/ai/manus/chat?message=xxx`
@@ -47,13 +51,15 @@ No global state library (Vuex/Pinia). All state is component-local:
 ### Entry & Routing
 
 - [src/main.js](src/main.js) — Creates Vue app, registers router
-- [src/router/index.js](src/router/index.js) — Three routes with meta (title, description); `router.afterEach` updates `document.title` and `<meta name="description">`
+- [src/router/index.js](src/router/index.js) — Four routes with meta (title, description); `router.afterEach` updates `document.title` and `<meta name="description">`
 
 ### Page Structure
 
 - [src/App.vue](src/App.vue) — Root shell with `<router-view>` + site footer
-- [src/views/HomePage.vue](src/views/HomePage.vue) — Home page with two app card entries
+- [src/views/HomePage.vue](src/views/HomePage.vue) — Home page with three app card entries
 - [src/views/LoveChatPage.vue](src/views/LoveChatPage.vue) — Thin wrapper around ChatRoom with `chatId` session
+  - Session ID: `crypto.randomUUID()` (standard UUID format)
+- [src/views/PetChatPage.vue](src/views/PetChatPage.vue) — Thin wrapper around ChatRoom with `chatId` session
   - Session ID: `crypto.randomUUID()` (standard UUID format)
 - [src/views/ManusChatPage.vue](src/views/ManusChatPage.vue) — Thin wrapper around ChatRoom with `stepBubbleMode: true`
   - Session ID: `MANUS-${Date.now()}` (timestamp-based format)
@@ -119,4 +125,15 @@ The typewriter effect uses a queue-based system to ensure smooth character-by-ch
 | `sessionTitle` | String | '默认会话' | Session title in header |
 | `sessionId` | String | '' | Display session ID in header |
 | `aiName` | String | 'Neko AI' | AI sender name |
-| `aiAvatar` | String | 'NA' | AI avatar initials |
+| `aiAvatar` | String | 'NA' | AI avatar initials — selects SVG icon |
+
+#### Avatar Code → Icon Mapping
+
+`aiAvatar` drives which SVG icon renders in the AI message bubble:
+
+| Code | Icon | Used by |
+|------|------|---------|
+| `NL` | Heart | LoveChatPage |
+| `NM` | Robot | ManusChatPage |
+| `NP` | Cat | PetChatPage |
+| other | Smiley face | Default fallback |

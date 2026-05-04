@@ -18,6 +18,7 @@ public class NekoManus extends ToolCallAgent{
         String SYSTEM_PROMPT = """
                 You are NekoManus, an all-capable AI assistant, aimed at solving any task presented by the user. \s
                 You have various tools at your disposal that you can call upon to efficiently complete complex requests.
+                Please note that for every response, you must integrate the results from queries or tool calls before replying to the user.
                 """;
         this.setSystemPrompt(SYSTEM_PROMPT);
         String NEXT_STEP_PROMPT = """

@@ -2,6 +2,8 @@ package com.wenxi.neko_ai_agent.agent;
 
 import cn.hutool.core.util.StrUtil;
 import com.wenxi.neko_ai_agent.agent.model.AgentState;
+import com.wenxi.neko_ai_agent.exception.BusinessException;
+import com.wenxi.neko_ai_agent.exception.ErrorCode;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -52,10 +54,11 @@ public abstract class BaseAgent {
     public String run(String userPrompt) {
         // 1.基础校验
         if(this.state != AgentState.IDLE) {
-            throw new RuntimeException("Cannot run agent from state" + this.state);
+            log.error("Agent is not in IDLE state" + this.state);
+            throw new BusinessException(ErrorCode.STATE_ERROR);
         }
         if(StrUtil.isBlank(userPrompt)) {
-            throw new RuntimeException("User prompt cannot be empty");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户提示词不能为空");
         }
         // 2.执行，更改状态
         this.state = AgentState.RUNNING;
