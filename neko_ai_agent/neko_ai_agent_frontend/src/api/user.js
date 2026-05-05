@@ -69,5 +69,65 @@ export const userLoginByEmail = (userEmail, inputCode) => {
  * @returns {Promise<{code: number, data: boolean, message: string}>}
  */
 export const GlobalUpdateUser = (data) => {
+  return http.post('/user/global/update', data)
+}
+
+/**
+ * 用户上传头像
+ * @param {File} file - 头像图片文件
+ * @returns {Promise<{code: number, data: string, message: string}>}
+ */
+export const uploadAvatar = (file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return http.post('/user/upload/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+// ==================== 管理员接口 ====================
+
+/**
+ * 创建用户（管理员）
+ * @param {Object} data - { userName, userAccount, userAvatar, userProfile, userRole }
+ * @returns {Promise}
+ */
+export const addUser = (data) => {
+  return http.post('/user/add', data)
+}
+
+/**
+ * 根据 id 获取用户（管理员）
+ * @param {string|number} id
+ * @returns {Promise}
+ */
+export const getUserById = (id) => {
+  return http.get('/user/get', { params: { id } })
+}
+
+/**
+ * 删除用户（管理员）
+ * @param {string|number} id
+ * @returns {Promise}
+ */
+export const deleteUser = (id) => {
+  return http.post('/user/delete', { id })
+}
+
+/**
+ * 更新用户信息（管理员）
+ * @param {Object} data - { id, userName, userEmail, userAvatar, userProfile, userRole }
+ * @returns {Promise}
+ */
+export const updateUser = (data) => {
   return http.post('/user/update', data)
+}
+
+/**
+ * 分页查询用户列表（管理员）
+ * @param {Object} data - { current, pageSize, userName, userAccount, userRole, sortField, sortOrder }
+ * @returns {Promise}
+ */
+export const listUserByPage = (data) => {
+  return http.post('/user/list/page/vo', data)
 }

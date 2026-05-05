@@ -1,6 +1,21 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
+import { marked } from 'marked'
 import { getApiUrl } from '../api/http'
+import { useUser } from '../composables/useUser'
+
+// Configure marked for safe rendering
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+})
+
+const renderMarkdown = (text) => {
+  if (!text) return ''
+  // Normalize literal \n sequences to real newlines for proper markdown parsing
+  const normalized = text.replace(/\\n/g, '\n')
+  return marked.parse(normalized)
+}
 
 const props = defineProps({
   title: { type: String, required: true },
@@ -14,6 +29,9 @@ const props = defineProps({
   aiAvatar: { type: String, default: 'NA' },
 })
 
+const { currentUser } = useUser()
+const userAvatarUrl = computed(() => currentUser.value?.userAvatar || '')
+
 const messages = ref([])
 const inputText = ref('')
 const isLoading = ref(false)
@@ -25,6 +43,10 @@ let activeTypingTask = null
 let streamEnded = false
 let hasReceivedAiContent = false
 let lastStepText = ''
+
+// Step thinking mode state
+let stepThinkingIndex = -1
+let stepCount = 0
 
 const canSend = computed(() => inputText.value.trim().length > 0 && !isLoading.value)
 const sessionIdText = computed(() => props.sessionId || 'AUTO')
@@ -82,15 +104,73 @@ const extractChunkText = (rawData) => {
 }
 
 const finalizeStream = () => {
+  // For step mode: mark thinking as complete and extract final result
+  if (props.stepBubbleMode && stepThinkingIndex >= 0) {
+    const thinkingMsg = messages.value[stepThinkingIndex]
+    if (thinkingMsg && thinkingMsg.steps && thinkingMsg.steps.length > 0) {
+      thinkingMsg.thinkingDone = true
+      thinkingMsg.thinkingCollapsed = true
+
+      // Find a meaningful final result (skip terminate/end markers)
+      const skipPatterns = ['doTerminate', '任务结束', '任务完成', '执行结束', '达到最大步骤', '思考完成 - 无需行动']
+      let finalContent = ''
+
+      // Look from the end backward to find a step with real content
+      for (let i = thinkingMsg.steps.length - 1; i >= 0; i--) {
+        const step = (thinkingMsg.steps[i] || '').trim()
+        const isSkippable = skipPatterns.some(p => step.includes(p))
+        if (!isSkippable && step.length > 20) {
+          // Found a meaningful step — extract the content after the colon if present
+          const colonIdx = step.indexOf('的结果:')
+          if (colonIdx > -1) {
+            finalContent = step.slice(colonIdx + 4).trim().replace(/^["']|["']$/g, '')
+          } else {
+            finalContent = step
+          }
+          break
+        }
+      }
+
+      if (finalContent) {
+        messages.value.push({
+          role: 'ai',
+          content: finalContent,
+          time: formatTime(),
+          isFinalResult: true,
+        })
+      }
+    }
+  }
+
   isLoading.value = false
   stopTypewriter()
   streamEnded = false
   hasReceivedAiContent = false
   lastStepText = ''
+  stepThinkingIndex = -1
+  stepCount = 0
   closeCurrentStream()
+  scrollToBottom()
 }
 
 const stopGenerating = () => {
+  // 标记 thinking 消息为已停止
+  if (props.stepBubbleMode && stepThinkingIndex >= 0) {
+    const thinkingMsg = messages.value[stepThinkingIndex]
+    if (thinkingMsg) {
+      thinkingMsg.thinkingDone = true
+      thinkingMsg.thinkingStopped = true
+      thinkingMsg.thinkingCollapsed = true
+    }
+  } else {
+    // 非 stepBubbleMode 时才显示停止提示
+    messages.value.push({
+      role: 'ai',
+      content: '已停止生成回复。',
+      time: formatTime(),
+      isStopNotice: true,
+    })
+  }
   finalizeStream()
 }
 
@@ -105,7 +185,17 @@ const flushTypewriter = () => {
   }
 
   const step = Math.min(3, activeTypingTask.text.length)
-  messages.value[activeTypingTask.aiIndex].content += activeTypingTask.text.slice(0, step)
+
+  if (activeTypingTask.isStep) {
+    // Append to the current step in thinking message
+    const thinkingMsg = messages.value[activeTypingTask.aiIndex]
+    if (thinkingMsg && thinkingMsg.steps) {
+      const stepIdx = activeTypingTask.stepIdx
+      thinkingMsg.steps[stepIdx] = (thinkingMsg.steps[stepIdx] || '') + activeTypingTask.text.slice(0, step)
+    }
+  } else {
+    messages.value[activeTypingTask.aiIndex].content += activeTypingTask.text.slice(0, step)
+  }
   activeTypingTask.text = activeTypingTask.text.slice(step)
   scrollToBottom()
 
@@ -116,8 +206,8 @@ const flushTypewriter = () => {
   }
 }
 
-const enqueueChunk = (chunk, aiIndex) => {
-  typingQueue.push({ aiIndex, text: chunk })
+const enqueueChunk = (chunk, aiIndex, isStep = false, stepIdx = 0) => {
+  typingQueue.push({ aiIndex, text: chunk, isStep, stepIdx })
   hasReceivedAiContent = true
   if (!typingTimer) {
     typingTimer = setInterval(() => { flushTypewriter() }, 20)
@@ -133,6 +223,13 @@ const copySessionId = () => {
   navigator.clipboard?.writeText(props.sessionId || '')
 }
 
+const toggleThinking = (idx) => {
+  const msg = messages.value[idx]
+  if (msg) {
+    msg.thinkingCollapsed = !msg.thinkingCollapsed
+  }
+}
+
 const sendMessage = async () => {
   const message = inputText.value.trim()
   if (!message) return
@@ -142,6 +239,8 @@ const sendMessage = async () => {
   streamEnded = false
   hasReceivedAiContent = false
   lastStepText = ''
+  stepThinkingIndex = -1
+  stepCount = 0
   isLoading.value = true
 
   const now = formatTime()
@@ -157,6 +256,17 @@ const sendMessage = async () => {
       role: 'ai',
       content: '',
       time: now,
+    }) - 1
+  } else {
+    // Create a thinking container message
+    stepThinkingIndex = messages.value.push({
+      role: 'ai',
+      content: '',
+      time: now,
+      isThinking: true,
+      thinkingDone: false,
+      thinkingCollapsed: false,
+      steps: [],
     }) - 1
   }
 
@@ -182,13 +292,16 @@ const sendMessage = async () => {
         const normalizedChunk = chunk.trim()
         if (normalizedChunk && normalizedChunk === lastStepText) return
         lastStepText = normalizedChunk
-        const stepAiIndex = messages.value.push({
-          role: 'ai',
-          content: '',
-          time: formatTime(),
-        }) - 1
-        const stepChunk = chunk.endsWith('\n') ? `${chunk}\n` : `${chunk}\n\n`
-        enqueueChunk(stepChunk, stepAiIndex)
+
+        // Add as a new step in the thinking container
+        const thinkingMsg = messages.value[stepThinkingIndex]
+        if (thinkingMsg) {
+          const newStepIdx = thinkingMsg.steps.length
+          thinkingMsg.steps.push('')
+          stepCount++
+          const stepChunk = chunk.endsWith('\n') ? chunk : chunk + '\n'
+          enqueueChunk(stepChunk, stepThinkingIndex, true, newStepIdx)
+        }
       } else {
         enqueueChunk(chunk, aiIndex)
       }
@@ -316,7 +429,8 @@ onBeforeUnmount(() => {
 
         <!-- User Avatar -->
         <div v-else class="avatar user-avatar">
-          <svg viewBox="0 0 24 24" fill="currentColor" opacity="0.6">
+          <img v-if="userAvatarUrl" :src="userAvatarUrl" alt="用户头像" class="user-avatar-img" />
+          <svg v-else viewBox="0 0 24 24" fill="currentColor" opacity="0.6">
             <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z" />
           </svg>
         </div>
@@ -324,7 +438,40 @@ onBeforeUnmount(() => {
         <!-- Message Body -->
         <div class="message-body">
           <span class="sender-label">{{ item.role === 'ai' ? aiName : '我' }}</span>
-          <div class="bubble">{{ item.content || (item.role === 'ai' ? '思考中...' : '') }}</div>
+
+          <!-- Thinking Steps Container (Manus) -->
+          <div v-if="item.isThinking" class="bubble thinking-bubble">
+            <div class="thinking-header" @click="toggleThinking(idx)">
+              <svg class="thinking-icon" :class="{ spinning: !item.thinkingDone }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle v-if="!item.thinkingDone" cx="12" cy="12" r="10" stroke-dasharray="30 70" />
+                <path v-else-if="item.thinkingStopped" d="M8 8l8 8M16 8l-8 8" />
+                <path v-else d="M9 12l2 2 4-4" />
+                <circle v-if="item.thinkingDone" cx="12" cy="12" r="10" />
+              </svg>
+              <span class="thinking-title">{{ item.thinkingDone ? (item.thinkingStopped ? '已停止思考' : '深度思考已完成') : '深度思考中...' }}</span>
+              <span class="thinking-step-count" v-if="item.steps.length">{{ item.steps.length }} 步</span>
+              <svg class="thinking-chevron" :class="{ collapsed: item.thinkingCollapsed }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
+            <div class="thinking-steps" v-show="!item.thinkingCollapsed">
+              <div v-for="(step, sIdx) in item.steps" :key="sIdx" class="thinking-step-item">
+                <span class="thinking-step-label">Step {{ sIdx + 1 }}</span>
+                <span class="thinking-step-text">{{ step }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Final Result Bubble (Markdown) -->
+          <div v-else-if="item.isFinalResult" class="bubble final-result-bubble markdown-body" v-html="renderMarkdown(item.content)"></div>
+
+          <!-- Stop Notice Bubble -->
+          <div v-else-if="item.isStopNotice" class="bubble stop-notice-bubble">{{ item.content }}</div>
+
+          <!-- Normal Bubble -->
+          <div v-else-if="item.role === 'ai'" class="bubble markdown-body" v-html="renderMarkdown(item.content) || '思考中...'"></div>
+          <div v-else class="bubble">{{ item.content }}</div>
+
           <div class="message-meta">
             <span>{{ item.time }}</span>
             <span v-if="item.role === 'user'" class="read-status">✓✓</span>
@@ -355,7 +502,9 @@ onBeforeUnmount(() => {
           @click="stopGenerating"
           title="停止生成"
         >
-          ■
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+            <rect x="1" y="1" width="12" height="12" rx="2" />
+          </svg>
         </button>
         <button
           v-else

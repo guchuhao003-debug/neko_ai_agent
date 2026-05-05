@@ -9,6 +9,7 @@ import com.wenxi.neko_ai_agent.exception.BaseResponse;
 import com.wenxi.neko_ai_agent.exception.BusinessException;
 import com.wenxi.neko_ai_agent.exception.ErrorCode;
 import com.wenxi.neko_ai_agent.exception.ThrowUtils;
+import com.wenxi.neko_ai_agent.manager.CosManager;
 import com.wenxi.neko_ai_agent.model.dto.*;
 import com.wenxi.neko_ai_agent.model.entity.User;
 import com.wenxi.neko_ai_agent.model.vo.LoginUserVO;
@@ -19,8 +20,13 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/user")
@@ -31,6 +37,9 @@ public class UserController {
 
     @Resource
     private EmailService emailService;
+
+    @Resource
+    private CosManager cosManager;
 
     /**
      * 用户注册
@@ -207,7 +216,7 @@ public class UserController {
      * @param userUpdateRequest 更新请求参数
      * @return
      */
-    @PostMapping("/user/update")
+    @PostMapping("/global/update")
     public BaseResponse<Boolean> GlobalUpdateUser(@RequestBody UserUpdateRequest userUpdateRequest) {
         if (userUpdateRequest == null || userUpdateRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -237,6 +246,77 @@ public class UserController {
         List<UserVO> userVOList = userService.getUserVOList(userPage.getRecords());
         userVOPage.setRecords(userVOList);
         return ResultUtils.success(userVOPage);
+    }
+
+    /**
+     * 用户上传头像
+     *
+     * @param multipartFile 头像文件
+     * @param request       请求
+     * @return 头像访问 URL
+     */
+    @PostMapping("/upload/avatar")
+    public BaseResponse<String> uploadAvatar(@RequestPart("file") MultipartFile multipartFile, HttpServletRequest request) {
+        // 1. 校验登录状态
+        User loginUser = userService.getLoginUser(request);
+
+        // 2. 校验文件
+        if (multipartFile == null || multipartFile.isEmpty()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件不能为空");
+        }
+        // 校验文件大小（最大 2MB）
+        long fileSize = multipartFile.getSize();
+        if (fileSize > 2 * 1024 * 1024) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件大小不能超过 2MB");
+        }
+        // 校验文件后缀
+        String originalFilename = multipartFile.getOriginalFilename();
+        String suffix = "";
+        if (originalFilename != null && originalFilename.contains(".")) {
+            suffix = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
+        }
+        List<String> allowedSuffixes = Arrays.asList(".jpg", ".jpeg", ".png", ".webp", ".gif");
+        if (!allowedSuffixes.contains(suffix)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "不支持的文件格式，仅支持 jpg/jpeg/png/webp/gif");
+        }
+
+        // 3. 生成唯一文件名
+        String key = String.format("avatar/%s/%s%s", loginUser.getId(), UUID.randomUUID().toString().replace("-", ""), suffix);
+
+        // 4. 上传到 COS
+        File tempFile = null;
+        try {
+            tempFile = File.createTempFile("avatar_", suffix);
+            multipartFile.transferTo(tempFile);
+            String avatarUrl = cosManager.uploadFile(key, tempFile);
+
+            // 5. 删除旧头像资源
+            String oldAvatar = loginUser.getUserAvatar();
+            if (oldAvatar != null && oldAvatar.contains(cosManager.getHost())) {
+                String oldKey = oldAvatar.substring(cosManager.getHost().length() + 1);
+                try {
+                    cosManager.deleteFile(oldKey);
+                } catch (Exception ignored) {
+                    // 旧文件删除失败不影响主流程
+                }
+            }
+
+            // 6. 更新数据库
+            User updateUser = new User();
+            updateUser.setId(loginUser.getId());
+            updateUser.setUserAvatar(avatarUrl);
+            boolean result = userService.updateById(updateUser);
+            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "头像更新失败");
+
+            // 7. 返回头像 URL
+            return ResultUtils.success(avatarUrl);
+        } catch (IOException e) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "文件上传失败");
+        } finally {
+            if (tempFile != null && tempFile.exists()) {
+                tempFile.delete();
+            }
+        }
     }
 
 

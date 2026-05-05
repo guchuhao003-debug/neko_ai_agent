@@ -2,17 +2,22 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUser } from '../composables/useUser'
-import { GlobalUpdateUser } from '../api/user'
+import { GlobalUpdateUser, uploadAvatar } from '../api/user'
 
 const router = useRouter()
 const { currentUser, fetchUser, logout } = useUser()
 
 const showDropdown = ref(false)
 const showProfileModal = ref(false)
+const showAnnouncementModal = ref(false)
 const isEditing = ref(false)
 const isSaving = ref(false)
 const editError = ref('')
 const editSuccess = ref('')
+const isUploadingAvatar = ref(false)
+const avatarFileInput = ref(null)
+const avatarMsg = ref('')
+const avatarMsgType = ref('')
 
 const editForm = ref({
   userName: '',
@@ -20,8 +25,15 @@ const editForm = ref({
   userProfile: ''
 })
 
-onMounted(() => {
-  fetchUser()
+onMounted(async () => {
+  await fetchUser()
+  // 登录后自动弹出系统公告（延迟 3 秒）
+  if (sessionStorage.getItem('just_logged_in')) {
+    sessionStorage.removeItem('just_logged_in')
+    setTimeout(() => {
+      showAnnouncementModal.value = true
+    }, 1000)
+  }
 })
 
 const toggleDropdown = () => {
@@ -108,10 +120,71 @@ const goToLogin = () => {
   router.push('/login')
 }
 
+const openAnnouncement = () => {
+  showAnnouncementModal.value = true
+}
+
+const closeAnnouncement = () => {
+  showAnnouncementModal.value = false
+}
+
+const goToUserManage = () => {
+  closeDropdown()
+  router.push('/admin/users')
+}
+
 const getAvatarText = () => {
   if (!currentUser.value) return ''
   const name = currentUser.value.userName || currentUser.value.userAccount || ''
   return name.charAt(0).toUpperCase()
+}
+
+const triggerAvatarUpload = () => {
+  avatarFileInput.value?.click()
+}
+
+const handleAvatarChange = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  // 前端校验文件类型
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+  if (!allowedTypes.includes(file.type)) {
+    avatarMsg.value = '不支持的图片格式，仅支持 jpg/png/webp/gif'
+    avatarMsgType.value = 'error'
+    return
+  }
+  // 前端校验文件大小（2MB）
+  if (file.size > 2 * 1024 * 1024) {
+    avatarMsg.value = '图片大小不能超过 2MB'
+    avatarMsgType.value = 'error'
+    return
+  }
+
+  isUploadingAvatar.value = true
+  avatarMsg.value = ''
+  try {
+    const response = await uploadAvatar(file)
+    if (response.data.code === 0) {
+      await fetchUser()
+      avatarMsg.value = '头像更新成功'
+      avatarMsgType.value = 'success'
+      setTimeout(() => { avatarMsg.value = '' }, 2500)
+    } else {
+      avatarMsg.value = response.data.message || '头像上传失败'
+      avatarMsgType.value = 'error'
+    }
+  } catch (error) {
+    console.error('头像上传失败:', error)
+    avatarMsg.value = '头像上传失败，请检查网络连接'
+    avatarMsgType.value = 'error'
+  } finally {
+    isUploadingAvatar.value = false
+    // 清空 input 值，允许重复选择同一文件
+    if (avatarFileInput.value) {
+      avatarFileInput.value.value = ''
+    }
+  }
 }
 </script>
 
@@ -126,6 +199,26 @@ const getAvatarText = () => {
 
       <!-- Right Section -->
       <div class="navbar-right">
+        <!-- Announcement Button -->
+        <button class="navbar-notify-btn" title="系统公告" @click="openAnnouncement">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          <span class="notify-dot"></span>
+        </button>
+
+        <!-- Docs Button -->
+        <router-link to="/docs" class="navbar-docs-btn" title="操作文档">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            <line x1="8" y1="7" x2="16" y2="7" />
+            <line x1="8" y1="11" x2="14" y2="11" />
+          </svg>
+          <span>操作文档</span>
+        </router-link>
+
         <!-- Not Logged In -->
         <button v-if="!currentUser" class="navbar-login-btn" @click="goToLogin">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -162,6 +255,15 @@ const getAvatarText = () => {
                 </svg>
                 <span>我的中心</span>
               </button>
+              <button v-if="currentUser.userRole === 'admin'" class="dropdown-item" @click="goToUserManage">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                <span>用户管理</span>
+              </button>
               <button class="dropdown-item dropdown-item-danger" @click="handleLogout">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -190,17 +292,38 @@ const getAvatarText = () => {
           </button>
 
           <div class="profile-header">
-            <!-- Avatar -->
-            <div class="profile-avatar-wrap">
+            <!-- Avatar with upload -->
+            <div class="profile-avatar-wrap profile-avatar-clickable" @click="triggerAvatarUpload">
               <div v-if="currentUser?.userAvatar" class="profile-avatar-img">
                 <img :src="currentUser.userAvatar" :alt="currentUser.userName" />
               </div>
               <div v-else class="profile-avatar-text">
                 {{ getAvatarText() }}
               </div>
+              <!-- Upload overlay -->
+              <div class="profile-avatar-overlay" :class="{ 'is-uploading': isUploadingAvatar }">
+                <svg v-if="!isUploadingAvatar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+                <div v-else class="avatar-upload-spinner"></div>
+              </div>
             </div>
+            <input
+              ref="avatarFileInput"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              style="display: none"
+              @change="handleAvatarChange"
+            />
             <h2 class="profile-name">{{ currentUser?.userName || '用户' }}</h2>
             <p class="profile-role">{{ currentUser?.userRole === 'admin' ? '管理员' : '普通用户' }}</p>
+            <!-- Avatar upload feedback -->
+            <Transition name="fade">
+              <div v-if="avatarMsg" class="profile-avatar-msg" :class="avatarMsgType === 'success' ? 'profile-edit-msg-success' : 'profile-edit-msg-error'">
+                {{ avatarMsg }}
+              </div>
+            </Transition>
           </div>
 
           <!-- Display Mode -->
@@ -323,6 +446,60 @@ const getAvatarText = () => {
                 <span v-else>保存中...</span>
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <!-- Announcement Modal -->
+  <Teleport to="body">
+    <Transition name="modal">
+      <div v-if="showAnnouncementModal" class="modal-overlay" @click="closeAnnouncement">
+        <div class="modal-container announcement-modal" @click.stop>
+          <button class="modal-close" @click="closeAnnouncement">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+
+          <div class="announcement-header">
+            <svg class="announcement-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+            </svg>
+            <h2 class="announcement-title">Neko AI Agent 系统公告</h2>
+            <span class="announcement-badge">v1.0.0</span>
+          </div>
+
+          <div class="announcement-body">
+            <div class="announcement-section">
+              <h3>Neko AI Agent v1.0.0 正式发布</h3>
+              <p class="announcement-date">发布日期：2026 年 5 月</p>
+              <p>我们很高兴地宣布，<strong>Neko AI Agent 智能体平台</strong> 1.0.0 版本正式上线！这是一个基于 Spring AI + Vue 3 构建的多智能体协作平台，为用户提供多场景 AI 对话体验。</p>
+            </div>
+
+            <div class="announcement-section">
+              <h3>核心功能</h3>
+              <ul>
+                <li><strong>AI 恋爱大师</strong> — 基于 RAG 增强检索，融合情感分析与多轮对话记忆，提供专业恋爱咨询建议</li>
+                <li><strong>NekoMenus 超级智能体</strong> — 采用 ReAct 推理-行动模式，支持联网搜索、文件操作、PDF 生成、邮件发送等 10+ 工具的自主规划与执行</li>
+                <li><strong>AI 宠物专家</strong> — 集成 MCP 协议连接高德地图等外部服务，结合文件记忆系统，提供科学养宠建议</li>
+              </ul>
+            </div>
+
+            <div class="announcement-section">
+              <h3>技术亮点</h3>
+              <ul>
+                <li>SSE 实时流式输出，打字机效果逐字呈现</li>
+                <li>深度思考面板：可视化 Agent 推理过程，支持折叠展开</li>
+                <li>Markdown 渲染：AI 回复支持结构化格式输出</li>
+                <li>MCP 协议集成：标准化连接第三方工具与服务</li>
+                <li>会话记忆：基于文件持久化的多轮对话上下文</li>
+              </ul>
+            </div>
+
+            <p class="announcement-footer-text">感谢你使用 Neko AI Agent，期待你的反馈与建议！</p>
           </div>
         </div>
       </div>

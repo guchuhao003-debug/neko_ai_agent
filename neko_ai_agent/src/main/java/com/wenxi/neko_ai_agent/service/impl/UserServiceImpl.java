@@ -50,7 +50,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public long userRegister(String userName, String userEmail, String userAccount, String userPassword, String checkPassword) {
         // 1.校验参数
-        if (StrUtil.hasBlank(userName, userEmail, userAccount, userPassword, checkPassword)) {
+        if (StrUtil.hasBlank(userName, userAccount, userPassword, checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"参数为空");
         }
         if (userName.length() > 10) {
@@ -72,10 +72,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (matcher.find()) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"账号包含特殊字符");
         }
-        // 校验邮箱格式是否正确（QQ邮箱）
-        boolean validEmail = EmailCodeUtil.isValidEmail(userEmail);
-        if(!validEmail){
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"邮箱格式不正确");
+
+        // 邮箱为选填，当用户填入了邮箱才会校验
+        if (StrUtil.isNotBlank(userEmail)) {
+            // 校验邮箱格式是否正确（QQ邮箱）
+            boolean validEmail = EmailCodeUtil.isValidEmail(userEmail);
+            if(!validEmail){
+                throw new BusinessException(ErrorCode.PARAMS_ERROR,"邮箱格式不正确");
+            }
+            // 检查邮箱是否已存在，邮箱重复
+            QueryWrapper<User> EmailQueryWrapper = new QueryWrapper<>();
+            EmailQueryWrapper.eq("userEmail", userEmail);
+            long countOfUserEmail = this.baseMapper.selectCount(EmailQueryWrapper);
+            if (countOfUserEmail > 0) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "邮箱已存在");
+            }
         }
 
         // 2.检查账号是否已注册（是否重复）
@@ -92,19 +103,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (nameCount > 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"用户名已存在");
         }
-        // 检查邮箱是否已存在，邮箱重复
-        QueryWrapper<User> EmailQueryWrapper = new QueryWrapper<>();
-        EmailQueryWrapper.eq("userEmail", userEmail);
-        long countOfUserEmail = this.baseMapper.selectCount(EmailQueryWrapper);
-        if (countOfUserEmail > 0) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "邮箱已存在");
-        }
+
         // 3.密码一定要加密
         String encryptPassword = getEncryptPassword(userPassword);
         // 4.数据保存至数据库
         User user = new User();
         user.setUserName(userName);
-        user.setUserEmail(userEmail);
+        user.setUserEmail(StrUtil.isNotBlank(userEmail) ? userEmail : null);
         user.setUserAccount(userAccount);
         user.setUserPassword(encryptPassword);
         user.setUserRole(UserRoleEnum.USER.getValue());

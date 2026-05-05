@@ -45,11 +45,23 @@ const appList = [
       <div class="particle" />
     </div>
 
+    <!-- Sparkle Stars -->
+    <div class="sparkle-container">
+      <div class="sparkle-star" v-for="n in 40" :key="'star-' + n" />
+    </div>
+
     <!-- Content -->
     <div class="home-content">
       <h1 class="home-title">Neko AI Agent</h1>
       <p class="home-subtitle">超 越 想 象 ， 智 能 无 界</p>
       <div class="subtitle-line" />
+
+      <!-- Tag Badges -->
+      <div class="home-tags">
+        <span class="home-tag">Custom-agent</span>
+        <span class="home-tag">Multi-agent</span>
+        <span class="home-tag">Manus-agent</span>
+      </div>
 
       <div class="card-grid">
         <router-link
@@ -81,22 +93,8 @@ const appList = [
                 <circle cx="42" cy="28" r="5" fill="rgba(255,255,255,0.6)" />
                 <circle cx="26" cy="18" r="4" fill="rgba(255,255,255,0.5)" />
               </svg>
-              <!-- N with planetary ring -->
-              <svg v-else viewBox="0 0 64 64" class="card-icon-svg">
-                <ellipse
-                  cx="32" cy="32" rx="22" ry="8"
-                  fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"
-                  transform="rotate(-20, 32, 32)"
-                />
-                <text
-                  x="32" y="40"
-                  text-anchor="middle"
-                  font-family="Orbitron, sans-serif"
-                  font-weight="900"
-                  font-size="30"
-                  fill="white"
-                >N</text>
-              </svg>
+              <!-- Neko Manus Logo -->
+              <img v-else src="/neko.png" alt="NekoMenus" class="card-icon-img" />
             </div>
 
             <h2 class="card-title">{{ app.title }}</h2>
@@ -112,6 +110,47 @@ const appList = [
           </div>
         </router-link>
       </div>
+
+      <!-- 致谢 -->
+      <section class="thanks-section">
+        <h2 class="thanks-title">致谢</h2>
+        <div class="thanks-divider"></div>
+        <p class="thanks-desc">Neko AI Agent 离不开开源社区和服务平台的支持</p>
+
+        <div class="thanks-cards">
+          <div class="thanks-card">
+            <div class="thanks-card-icon">
+              <img src="https://spring.io/img/projects/spring-ai.svg" alt="Spring AI" />
+            </div>
+            <h3 class="thanks-card-name">Spring AI</h3>
+            <p class="thanks-card-desc">感谢 Spring AI 团队提供的优秀框架，为 AI 应用开发提供了坚实的基础</p>
+            <a href="https://github.com/spring-projects/spring-ai" target="_blank" rel="noopener noreferrer" class="thanks-card-btn">
+              <span>访问 GitHub</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+            </a>
+          </div>
+
+          <div class="thanks-card">
+            <div class="thanks-card-icon">
+              <img src="/aliyun.png" alt="阿里云百炼" />
+            </div>
+            <h3 class="thanks-card-name">阿里云百炼大模型服务平台</h3>
+            <p class="thanks-card-desc">感谢阿里云百炼平台提供强大的大模型能力和完善的服务支持</p>
+            <a href="https://bailian.console.aliyun.com/" target="_blank" rel="noopener noreferrer" class="thanks-card-btn">
+              <span>了解更多</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+            </a>
+          </div>
+        </div>
+      </section>
     </div>
   </main>
 </template>

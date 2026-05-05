@@ -16,7 +16,7 @@ public class ToolRegistration {
     /**
      * 依赖注入模式
      */
-    @Value("${search-api.api-key")
+    @Value("${search-api.api-key}")
     private String searchApiKey;
 
     /**
@@ -44,7 +44,8 @@ public class ToolRegistration {
                 resourceDownloadTool,
                 terminalOperationTool,
                 pdfGenerationTool,
-                terminateTool
+                terminateTool,
+                qqEmailSenderTool
         );
     }
 

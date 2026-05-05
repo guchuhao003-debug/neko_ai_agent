@@ -102,6 +102,23 @@ public abstract class BaseAgent {
     public SseEmitter runStream(String userPrompt) {
         // 创建一个超时时间较长的 SseEmitter
         SseEmitter sseEmitter = new SseEmitter(300000L); // 5分钟超时
+        // 标记连接是否已断开
+        final boolean[] aborted = {false};
+        sseEmitter.onError(e -> aborted[0] = true);
+        sseEmitter.onTimeout(() -> {
+            aborted[0] = true;
+            this.state = AgentState.ERROR;
+            this.cleanup();
+            log.warn("SSE connection timeout");
+        });
+        sseEmitter.onCompletion(() -> {
+            if(this.state == AgentState.RUNNING){
+                this.state = AgentState.FINISHED;
+            }
+            this.cleanup();
+            log.info("SSE connection completed");
+        });
+
         // 使用线程异步处理，避免阻塞主线程
         CompletableFuture.runAsync(() -> {
             try {
@@ -118,6 +135,7 @@ public abstract class BaseAgent {
                 }
             } catch (Exception e) {
                 sseEmitter.completeWithError(e);
+                return;
             }
             // 2.执行，更改状态
             this.state = AgentState.RUNNING;
@@ -128,6 +146,10 @@ public abstract class BaseAgent {
             try {
                 // 执行循环
                 for(int i = 0; i < maxSteps && state != AgentState.FINISHED; i++) {
+                    if (aborted[0]) {
+                        log.warn("SSE connection aborted by client, stopping agent");
+                        break;
+                    }
                     // currentStep 初始化为 0
                     int stepNumber = i + 1;
                     currentStep = stepNumber;
@@ -137,7 +159,19 @@ public abstract class BaseAgent {
                     String result = "Step " + stepNumber + ": " + stepResult;
                     resultList.add(result);
                     // 输出当前每一步的结果到 SSE
-                    sseEmitter.send(result);
+                    if (!aborted[0]) {
+                        try {
+                            sseEmitter.send(result);
+                        } catch (IOException e) {
+                            log.warn("Client disconnected during send, stopping agent");
+                            aborted[0] = true;
+                            break;
+                        }
+                    }
+                }
+                if (aborted[0]) {
+                    state = AgentState.FINISHED;
+                    return;
                 }
                 // 检查是否超出步骤限制
                 if(currentStep >= maxSteps) {
@@ -150,11 +184,13 @@ public abstract class BaseAgent {
             } catch(Exception e) {
                 state = AgentState.ERROR;
                 log.error("Error executing agent", e);
-                try {
-                    sseEmitter.send("执行错误： " + e.getMessage());
-                    sseEmitter.complete();
-                } catch (IOException ex) {
-                    sseEmitter.completeWithError(ex);
+                if (!aborted[0]) {
+                    try {
+                        sseEmitter.send("执行错误： " + e.getMessage());
+                        sseEmitter.complete();
+                    } catch (IOException ex) {
+                        sseEmitter.completeWithError(ex);
+                    }
                 }
             } finally {
                 // 3.清理资源
@@ -162,20 +198,6 @@ public abstract class BaseAgent {
             }
         });
 
-        // 设置超时回调
-        sseEmitter.onTimeout(() -> {
-            this.state = AgentState.ERROR;
-            this.cleanup();
-            log.warn("SSE connection timeout");
-        });
-        // 设置完成回调
-        sseEmitter.onCompletion(() -> {
-            if(this.state == AgentState.RUNNING){
-                this.state = AgentState.FINISHED;
-            }
-            this.cleanup();
-            log.info("SSE connection completed");
-        });
         return sseEmitter;
     }
 

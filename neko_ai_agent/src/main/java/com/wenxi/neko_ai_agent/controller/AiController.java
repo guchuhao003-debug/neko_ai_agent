@@ -6,6 +6,7 @@ import com.wenxi.neko_ai_agent.app.PetApp;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +16,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 @RestController
 @RequestMapping("/ai")
@@ -31,6 +35,9 @@ public class AiController {
 
     @Resource
     private ToolCallback[] allTools;
+
+    @Resource
+    private ToolCallbackProvider toolCallbackProvider;
 
 
 
@@ -122,8 +129,13 @@ public class AiController {
      */
     @GetMapping("/manus/chat")
     public SseEmitter doChatWithManus(String message) {
+        // 合并本地工具和 MCP 工具
+        List<ToolCallback> combinedTools = new ArrayList<>(Arrays.asList(allTools));
+        ToolCallback[] mcpTools = (ToolCallback[]) toolCallbackProvider.getToolCallbacks();
+        combinedTools.addAll(Arrays.asList(mcpTools));
+        ToolCallback[] allCombinedTools = combinedTools.toArray(new ToolCallback[0]);
         // 单例，每次调用都需要重新创建一个实例，如果通过注入方式，那么用户调用的都是同一个实例，则容易造成阻塞
-        NekoManus nekoManus = new NekoManus(allTools,dashscopeChatModel);
+        NekoManus nekoManus = new NekoManus(allCombinedTools, dashscopeChatModel);
         return nekoManus.runStream(message);
     }
 

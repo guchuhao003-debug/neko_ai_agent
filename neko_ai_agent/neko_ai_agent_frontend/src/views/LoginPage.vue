@@ -84,6 +84,7 @@ const handleAccountLogin = async () => {
     const response = await userLogin(accountForm.value)
     if (response.data.code === 0) {
       setUser(response.data.data)
+      sessionStorage.setItem('just_logged_in', '1')
       router.push('/')
     } else {
       errorMessage.value = response.data.message || '登录失败，请重试'
@@ -115,6 +116,7 @@ const handleEmailLogin = async () => {
     const response = await userLoginByEmail(emailForm.value.userEmail, emailForm.value.inputCode)
     if (response.data.code === 0) {
       setUser(response.data.data)
+      sessionStorage.setItem('just_logged_in', '1')
       router.push('/')
     } else {
       errorMessage.value = response.data.message || '登录失败，请重试'

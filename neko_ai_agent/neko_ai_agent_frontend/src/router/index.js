@@ -5,6 +5,8 @@ import ManusChatPage from '../views/ManusChatPage.vue'
 import PetChatPage from '../views/PetChatPage.vue'
 import LoginPage from '../views/LoginPage.vue'
 import RegisterPage from '../views/RegisterPage.vue'
+import UserManagePage from '../views/UserManagePage.vue'
+import DocsPage from '../views/DocsPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -65,6 +67,24 @@ const router = createRouter({
         title: 'AI 宠物专家 - Neko AI Agent',
         description:
           'AI 宠物专家提供专业的宠物养护建议，支持基于 chatId 的多会话流式聊天。',
+      },
+    },
+    {
+      path: '/admin/users',
+      name: 'userManage',
+      component: UserManagePage,
+      meta: {
+        title: '用户管理 - Neko AI Agent',
+        description: '管理员用户管理页面，支持增删改查。',
+      },
+    },
+    {
+      path: '/docs',
+      name: 'docs',
+      component: DocsPage,
+      meta: {
+        title: '快速开始 - Neko AI Agent',
+        description: 'Neko AI Agent 平台使用文档，包含项目简介、技术栈和各智能体使用指南。',
       },
     },
   ],

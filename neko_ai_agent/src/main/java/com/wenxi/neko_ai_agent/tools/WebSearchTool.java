@@ -6,6 +6,7 @@ import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.HashMap;
 import java.util.List;
@@ -24,6 +25,7 @@ public class WebSearchTool {
     /**
      * Search ApiKey
      */
+    @Value("${search-api.api-key}")
     private final String apiKey;
 
     /**
@@ -47,12 +49,15 @@ public class WebSearchTool {
         paramMap.put("engine", "baidu");
         try {
             String response = HttpUtil.get(SEARCH_API_URL, paramMap);
-            // 取出返回结果的前 5 条
             JSONObject jsonObject = JSONUtil.parseObj(response);
             // 提取 organic_results 部分
             JSONArray organicResults = jsonObject.getJSONArray("organic_results");
-            // 指定返回前 5 条 （ k 可指定）
-            List<Object> objects = organicResults.subList(0, 5);
+            if (organicResults == null || organicResults.isEmpty()) {
+                return "未找到相关搜索结果，请尝试更换关键词。";
+            }
+            // 指定返回前 5 条
+            int limit = Math.min(5, organicResults.size());
+            List<Object> objects = organicResults.subList(0, limit);
             // 拼接搜索结果为字符串
             String result = objects.stream().map(obj -> {
                 JSONObject tmpJSONObject = (JSONObject) obj;
