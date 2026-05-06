@@ -72,27 +72,10 @@ const appList = [
         >
           <div class="card-glass">
             <div class="card-icon-wrap" aria-hidden="true">
-              <!-- Heart with cat silhouette -->
-              <svg v-if="app.icon === 'love'" viewBox="0 0 64 64" class="card-icon-svg">
-                <path
-                  d="M32 56 C30 54 10 42 10 28 C10 18 16 12 24 12 C29 12 32 15 32 18 C32 15 35 12 40 12 C48 12 54 18 54 28 C54 42 34 54 32 56Z"
-                  fill="none"
-                  stroke="white"
-                  stroke-width="2"
-                />
-                <path
-                  d="M28 22 L26 14 L30 20 L32 18 L34 20 L38 14 L36 22 C38 26 38 32 32 34 C26 32 26 26 28 22Z"
-                  fill="rgba(255,255,255,0.6)"
-                />
-              </svg>
-              <!-- Pet paw print -->
-              <svg v-else-if="app.icon === 'pet'" viewBox="0 0 64 64" class="card-icon-svg">
-                <ellipse cx="32" cy="42" rx="10" ry="12" fill="rgba(255,255,255,0.7)" />
-                <circle cx="22" cy="28" r="5" fill="rgba(255,255,255,0.6)" />
-                <circle cx="32" cy="24" r="5" fill="rgba(255,255,255,0.6)" />
-                <circle cx="42" cy="28" r="5" fill="rgba(255,255,255,0.6)" />
-                <circle cx="26" cy="18" r="4" fill="rgba(255,255,255,0.5)" />
-              </svg>
+              <!-- Love Expert Logo -->
+              <img v-if="app.icon === 'love'" src="/loveapp.png" alt="AI 恋爱大师" class="card-icon-img card-icon-love" />
+              <!-- Pet Expert Logo -->
+              <img v-else-if="app.icon === 'pet'" src="/petapp.png" alt="AI 宠物专家" class="card-icon-img card-icon-pet" />
               <!-- Neko Manus Logo -->
               <img v-else src="/neko.png" alt="NekoMenus" class="card-icon-img" />
             </div>

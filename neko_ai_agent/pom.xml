@@ -29,6 +29,26 @@
     <properties>
         <java.version>21</java.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-bom</artifactId>
+                <version>1.0.0.2</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>1.0.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -65,10 +85,15 @@
             <version>2.19.2</version>
         </dependency>
         <!-- Spring AI Alibaba : https://java2ai.com/docs/1.0.0-M6.1/overview/?spm=5176.29160081.0.0.2856aa5cUJV25m -->
+<!--        <dependency>-->
+<!--            <groupId>com.alibaba.cloud.ai</groupId>-->
+<!--            <artifactId>spring-ai-alibaba-starter</artifactId>-->
+<!--            <version>1.0.0-M6.1</version>-->
+<!--        </dependency>-->
+        <!-- Spring AI 1.0.0.2 -->
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
-            <artifactId>spring-ai-alibaba-starter</artifactId>
-            <version>1.0.0-M6.1</version>
+            <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
         </dependency>
         <!-- https://mvnrepository.com/artifact/dev.langchain4j/langchain4j-community-dashscope -->
         <dependency>
@@ -89,10 +114,14 @@
             <version>5.6.2</version>
         </dependency>
         <!--支持加载读取 Markdown 文档-->
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.ai</groupId>-->
+<!--            <artifactId>spring-ai-markdown-document-reader</artifactId>-->
+<!--            <version>1.0.0-M6</version>-->
+<!--        </dependency>-->
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-markdown-document-reader</artifactId>
-            <version>1.0.0-M6</version>
         </dependency>
         <!-- GitHub API -->
         <dependency>
@@ -114,6 +143,11 @@
 <!--            <groupId>org.springframework.ai</groupId>-->
 <!--            <artifactId>spring-ai-pgvector-store</artifactId>-->
 <!--            <version>1.0.0-M6</version>-->
+<!--        </dependency>-->
+        <!--Spring AI 1.0.0.2 适配版本-->
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.ai</groupId>-->
+<!--            <artifactId>spring-ai-pgvector-store</artifactId>-->
 <!--        </dependency>-->
         <!-- 自动整合 PgVector 向量存储-->
 <!--        <dependency>-->
@@ -143,14 +177,17 @@
             <version>9.1.0</version>
             <scope>test</scope>
         </dependency>
-        <!--JavaMail API（已移除旧版 javax.mail，改用 spring-boot-starter-mail）-->
         <!-- Spring AI MCP Client -->
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.ai</groupId>-->
+<!--            <artifactId>spring-ai-mcp-client-spring-boot-starter</artifactId>-->
+<!--            <version>1.0.0-M6</version>-->
+<!--        </dependency>-->
+        <!--Spring AI 1.0.0.2-->
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-mcp-client-spring-boot-starter</artifactId>
-            <version>1.0.0-M6</version>
+            <artifactId>spring-ai-starter-mcp-client</artifactId>
         </dependency>
-
         <!--切面编程-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -184,7 +221,34 @@
             <artifactId>cos_api</artifactId>
             <version>5.6.227</version>
         </dependency>
+        <!-- 使用 QuestionAnswerAdvisor 需要添加该依赖 -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-advisors-vector-store</artifactId>
+        </dependency>
     </dependencies>
+
+    <repositories>
+        <repository>
+            <id>spring-snapshots</id>
+            <name>Spring Snapshots</name>
+            <url>https://repo.spring.io/snapshot</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+        </repository>
+        <repository>
+            <name>Central Portal Snapshots</name>
+            <id>central-portal-snapshots</id>
+            <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 
 
     <build>

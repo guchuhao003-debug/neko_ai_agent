@@ -32,7 +32,7 @@ public class LoveAppDocumentLoader {
     public List<Document> loadMarkdowns() {
         List<Document> allDocuments = new ArrayList<>();
         try {
-            Resource[] resources = resourcePatternResolver.getResources("classpath:document/*.md");
+            Resource[] resources = resourcePatternResolver.getResources("classpath:document/love_app/*.md");
             for (Resource resource : resources) {
                 String filename = resource.getFilename();
                 // 提取文档倒数第 3 和 第 2 个字作为标签 （单身、已婚、恋爱）

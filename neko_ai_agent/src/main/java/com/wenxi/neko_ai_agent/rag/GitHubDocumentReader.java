@@ -13,7 +13,6 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-import static com.google.common.io.Files.getFileExtension;
 
 /**
  * GitHub 文档加载器： 用于加载 GitHub 仓库中的文档内容
@@ -121,9 +120,16 @@ public class GitHubDocumentReader implements DocumentReader {
                     // 增加过滤逻辑
                     // 1. 检查文件扩展名
                     if (fileExtensions != null && !fileExtensions.isEmpty()) {
-                        boolean matchesExtension = fileExtensions.stream().anyMatch(
-                                ext -> ext.equalsIgnoreCase(getFileExtension(content.getName()))
-                        );
+                        boolean matchesExtension = fileExtensions.stream().anyMatch( ext -> {
+                            String fileName = content.getName();
+                            int lastDotIndex = fileName.lastIndexOf('.');
+                            // 如果找不到点，或者点在开头/结尾，视为无扩展名
+                            if (lastDotIndex <= 0 || lastDotIndex == fileName.length() - 1) {
+                                return false; // 或者根据需求返回 ext.isEmpty()
+                            }
+                            String fileExt = fileName.substring(lastDotIndex + 1);
+                            return ext.equalsIgnoreCase(fileExt);
+                        });
                         if (!matchesExtension) {
                             continue;  // 跳过不符合扩展名的文件
                         }
@@ -205,7 +211,13 @@ public class GitHubDocumentReader implements DocumentReader {
         metadata.put("github_repo", this.repo);
         metadata.put("github_branch", this.branch);
         // 解析后的元数据
-        metadata.put("file_extension", getFileExtension(content.getName()));
+        String fileName = content.getName();
+        String extension = "";
+        int lastDotIndex = fileName.lastIndexOf('.');
+        if(lastDotIndex > 0 && lastDotIndex < fileName.length() - 1) {
+            extension = fileName.substring(lastDotIndex + 1);
+        }
+        metadata.put("file_extension", extension);
         metadata.put("is_directory", content.isDirectory());
         metadata.put("encoding", Objects.toString(content.getUrl(),""));
         // 添加入口路径信息
@@ -410,4 +422,15 @@ public class GitHubDocumentReader implements DocumentReader {
         }
     }
 
+    /**
+     * 获取文件扩展名（Java 原生实现）
+     * @param filename 文件名
+     * @return 扩展名（不带点），如果没有扩展名则返回空字符串
+     */
+    private String getFileExtension(String filename) {
+        if (filename == null || filename.lastIndexOf('.') == -1) {
+            return "";
+        }
+        return filename.substring(filename.lastIndexOf('.') + 1);
+    }
 }

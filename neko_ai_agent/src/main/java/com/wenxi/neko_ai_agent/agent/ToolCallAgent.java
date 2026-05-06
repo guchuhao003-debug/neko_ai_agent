@@ -50,8 +50,8 @@ public class ToolCallAgent extends ReActAgent {
         // 所以需要禁用 Spring AI 内置的工具调用机制
         // ）
         this.chatOptions = DashScopeChatOptions.builder()
-                // true : Spring AI 就不会在内部进行工具调用，而由自主控制
-                .withProxyToolCalls(true)
+                // 禁用 Spring AI 内置的工具调用机制，自己维护选项和消息上下文 （
+                .withInternalToolExecutionEnabled(false)
                 .build();
     }
 
@@ -72,7 +72,7 @@ public class ToolCallAgent extends ReActAgent {
             Prompt prompt = new Prompt(messageList, this.chatOptions);
             ChatResponse chatResponse = getChatClient().prompt(prompt)
                     .system(getSystemPrompt())
-                    .tools(availableTools)
+                    .toolCallbacks(availableTools)
                     .call()
                     .chatResponse();
             // 记录响应，用于等下 Act

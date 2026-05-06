@@ -50,15 +50,11 @@ public class FileBasedChatMemory implements ChatMemory {
     /**
      * 获取消息列表
      * @param conversationId
-     * @param lastN
      * @return
      */
     @Override
-    public List<Message> get(String conversationId, int lastN) {
-        List<Message> messageList = getOrCreateConversation(conversationId);
-        return messageList.stream()
-                .skip(Math.max(0, messageList.size() - lastN))
-                .toList();
+    public List<Message> get(String conversationId) {
+        return getOrCreateConversation(conversationId);
     }
 
     /**

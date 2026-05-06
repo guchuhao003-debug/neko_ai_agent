@@ -17,8 +17,7 @@ import reactor.core.publisher.Flux;
 
 import java.util.List;
 
-import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY;
-import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor.CHAT_MEMORY_RETRIEVE_SIZE_KEY;
+import static org.springframework.ai.chat.client.advisor.vectorstore.VectorStoreChatMemoryAdvisor.TOP_K;
 
 /**
  * AI 宠物大师应用
@@ -42,10 +41,15 @@ public class PetApp {
         // 初始化基于文件的对话记忆
         String fileDir = System.getProperty("user.dir") + "/tmp/chat_memory";
         ChatMemory chatMemory = new FileBasedChatMemory(fileDir);
+        // 基于内存存储
+//        MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder()
+//                .chatMemoryRepository(new InMemoryChatMemoryRepository())
+//                .maxMessages(20)
+//                .build();
         chatClient = ChatClient.builder(dashscopeChatModel)
                 .defaultSystem(PromptConstant.PET_SYSTEM_PROMPT)
                 .defaultAdvisors(
-                        new MessageChatMemoryAdvisor(chatMemory),
+                        MessageChatMemoryAdvisor.builder(chatMemory).build(),
                         // 自定义日志 Advisor, 可按需开启
                         new MyLoggerAdvisor()
                         )
@@ -61,10 +65,10 @@ public class PetApp {
     public String doChat(String message, String chatId) {
         ChatResponse chatResponse = chatClient.prompt()
                 .user(message)
-                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
-                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
+                        .param(TOP_K, 20))
                 // 支持 MCP 配置
-                .tools(toolCallbackProvider)
+                .toolCallbacks(toolCallbackProvider)
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();
@@ -81,10 +85,10 @@ public class PetApp {
     public Flux<String> doChatStream(String message, String chatId) {
         return chatClient.prompt()
                 .user(message)
-                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY,chatId)
-                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY,10))
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID,chatId)
+                        .param(TOP_K,20))
                 // 支持 MCP 配置
-                .tools(toolCallbackProvider)
+                .toolCallbacks(toolCallbackProvider)
                 .stream()
                 .content();
     }
@@ -101,8 +105,8 @@ public class PetApp {
         PetReport petReport = chatClient.prompt()
                 .system(PromptConstant.PET_SYSTEM_PROMPT + "每次对话后都要生成养宠详细报告，标题为 {用户名} 的养宠详情报告，内容为建议列表")
                 .user(message)
-                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
-                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
+                        .param(TOP_K, 20))
                 .call()
                 .entity(PetReport.class);
         log.info("petReport: {}", petReport);
@@ -119,12 +123,12 @@ public class PetApp {
     public String doChatWithTools(String message, String chatId) {
         ChatResponse chatResponse = chatClient.prompt()
                 .user(message)
-                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
-                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
+                        .param(TOP_K, 20))
                 // 开启日志，便于观察效果
                 .advisors(new MyLoggerAdvisor())
                 // 调用 AI 工具
-                .tools(allTools)
+                .toolCallbacks(allTools)
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();
@@ -141,9 +145,9 @@ public class PetApp {
     public String doChatWithMcp(String message, String chatId) {
         ChatResponse chatResponse = chatClient.prompt()
                 .user(message)
-                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
-                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
-                .tools(toolCallbackProvider)
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
+                        .param(TOP_K, 20))
+                .toolCallbacks(toolCallbackProvider)
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();
