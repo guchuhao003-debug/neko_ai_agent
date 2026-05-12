@@ -12,8 +12,10 @@ const chatId = ref(crypto.randomUUID())
     :session-id="chatId"
     sse-path="/ai/pet_app/chat/sse"
     :use-chat-id="true"
-    :chat-id="chatId"
+    v-model:chat-id="chatId"
     ai-name="Neko Pet"
     ai-avatar="NP"
+    app-type="pet"
+    :show-model-selector="true"
   />
 </template>

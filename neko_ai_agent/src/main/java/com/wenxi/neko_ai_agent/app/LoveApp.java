@@ -1,7 +1,6 @@
 package com.wenxi.neko_ai_agent.app;
 
 import com.wenxi.neko_ai_agent.advisor.MyLoggerAdvisor;
-import com.wenxi.neko_ai_agent.chatmemory.FileBasedChatMemory;
 import com.wenxi.neko_ai_agent.rag.QueryRewriter;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +29,7 @@ import static org.springframework.ai.chat.client.advisor.vectorstore.VectorStore
 public class LoveApp {
 
     private final ChatClient chatClient;
+    private final ChatMemory chatMemory;
 
     private static final String SYSTEM_PROMPT = "扮演深耕恋爱心理领域的专家。开场向用户表明身份，告知用户可倾诉恋爱难题。" +
             "围绕单身、恋爱、已婚三种状态提问：单身状态询问社交圈拓展及追求心仪对象的困扰；" +
@@ -38,13 +38,14 @@ public class LoveApp {
 
 
     /**
-     * 初始化 AI 客户端 ChatClient
+     * 初始化 AI 客户端 ChatClient （基于官方 JDBC 对话记忆）
      * @param dashscopeChatModel
      */
-    public LoveApp(ChatModel dashscopeChatModel) {
+    public LoveApp(ChatModel dashscopeChatModel, ChatMemory chatMemory) {
+        this.chatMemory = chatMemory;
         // 初始化基于文件的对话记忆
-        String fileDir = System.getProperty("user.dir") + "/tmp/chat_memory";
-        ChatMemory chatMemory = new FileBasedChatMemory(fileDir);
+//        String fileDir = System.getProperty("user.dir") + "/tmp/chat_memory";
+//        ChatMemory chatMemory = new FileBasedChatMemory(fileDir);
         // 初始化基于内存的对话记忆
 //        MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder()
 //                .chatMemoryRepository(new InMemoryChatMemoryRepository())
@@ -72,8 +73,7 @@ public class LoveApp {
     public String doChat(String message, String chatId){
         ChatResponse chatResponse = chatClient.prompt()
                 .user(message)
-                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
-                        .param(TOP_K, 20))
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
                 // 应用 RAG 知识库问答
                 .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
                 // 支持 MCP 配置
@@ -103,6 +103,25 @@ public class LoveApp {
                 .stream()
                 .content();
 
+    }
+
+    /**
+     * AI 基础对话（指定模型，SSE 流式输出）
+     */
+    public Flux<String> doChatByStream(String message, String chatId, ChatModel chatModel){
+        ChatClient dynamicClient = ChatClient.builder(chatModel)
+                .defaultSystem(SYSTEM_PROMPT)
+                .defaultAdvisors(
+                        MessageChatMemoryAdvisor.builder(chatMemory).build(),
+                        new MyLoggerAdvisor()
+                )
+                .build();
+        return dynamicClient.prompt()
+                .user(message)
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
+                        .param(TOP_K, 20))
+                .stream()
+                .content();
     }
 
 

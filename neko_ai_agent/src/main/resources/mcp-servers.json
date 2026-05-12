@@ -7,7 +7,7 @@
         "@amap/amap-maps-mcp-server"
       ],
       "env": {
-        "AMAP_MAPS_API_KEY": "###################"
+        "AMAP_MAPS_API_KEY": "9546145d4b08ca37cbe68a86a248e4af"
       }
     },
     "neko-image-search-mcp-server": {

@@ -13,6 +13,11 @@ spring:
 #              url: http://localhost:8127
         stdio:
           servers-configuration: classpath:mcp-servers.json
+    chat:
+      memory:
+        repository:
+          jdbc:
+            initialize-schema: never   # 不自动建表，手动管理表
   # 数据库配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver

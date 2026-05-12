@@ -1,7 +1,6 @@
 package com.wenxi.neko_ai_agent.app;
 
 import com.wenxi.neko_ai_agent.advisor.MyLoggerAdvisor;
-import com.wenxi.neko_ai_agent.chatmemory.FileBasedChatMemory;
 import com.wenxi.neko_ai_agent.constant.PromptConstant;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +26,7 @@ import static org.springframework.ai.chat.client.advisor.vectorstore.VectorStore
 public class PetApp {
 
     private final ChatClient chatClient;
+    private final ChatMemory chatMemory;
 
     // AI 调用工具能力
     @Resource
@@ -37,10 +37,11 @@ public class PetApp {
     private ToolCallbackProvider toolCallbackProvider;
 
 
-    public PetApp(ChatModel dashscopeChatModel) {
+    public PetApp(ChatModel dashscopeChatModel, ChatMemory chatMemory) {
+        this.chatMemory = chatMemory;
         // 初始化基于文件的对话记忆
-        String fileDir = System.getProperty("user.dir") + "/tmp/chat_memory";
-        ChatMemory chatMemory = new FileBasedChatMemory(fileDir);
+//        String fileDir = System.getProperty("user.dir") + "/tmp/chat_memory";
+//        ChatMemory chatMemory = new FileBasedChatMemory(fileDir);
         // 基于内存存储
 //        MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder()
 //                .chatMemoryRepository(new InMemoryChatMemoryRepository())
@@ -89,6 +90,25 @@ public class PetApp {
                         .param(TOP_K,20))
                 // 支持 MCP 配置
                 .toolCallbacks(toolCallbackProvider)
+                .stream()
+                .content();
+    }
+
+    /**
+     * AI 基础对话（指定模型，SSE 流式输出）
+     */
+    public Flux<String> doChatStream(String message, String chatId, ChatModel chatModel) {
+        ChatClient dynamicClient = ChatClient.builder(chatModel)
+                .defaultSystem(PromptConstant.PET_SYSTEM_PROMPT)
+                .defaultAdvisors(
+                        MessageChatMemoryAdvisor.builder(chatMemory).build(),
+                        new MyLoggerAdvisor()
+                )
+                .build();
+        return dynamicClient.prompt()
+                .user(message)
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
+                        .param(TOP_K, 20))
                 .stream()
                 .content();
     }

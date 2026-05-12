@@ -4,12 +4,11 @@ import com.wenxi.neko_ai_agent.advisor.MyLoggerAdvisor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
-import org.springframework.stereotype.Component;
 
 /**
  * Neko AI Agent 超级智能体（拥有自主规划能力，可直接使用）
  */
-@Component
+//@Component
 public class NekoManus extends ToolCallAgent{
 
     public NekoManus(ToolCallback[] allTools, ChatModel dashscopeChatModel) {
@@ -32,8 +31,13 @@ public class NekoManus extends ToolCallAgent{
         this.setMaxSteps(20);
         // 初始化 AI 对话客户端
         ChatClient chatClient = ChatClient.builder(dashscopeChatModel)
-                .defaultAdvisors(new MyLoggerAdvisor())
+                .defaultAdvisors(
+                        new MyLoggerAdvisor()
+                )
                 .build();
         this.setChatClient(chatClient);
     }
+
+
+
 }

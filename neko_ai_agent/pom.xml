@@ -205,15 +205,30 @@
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!--Spring AI 官方JDBC模块-->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-chat-memory-repository-jdbc</artifactId>
+        </dependency>
+<!--        &lt;!&ndash; Spring AI Alibaba JDBC 记忆模块 &ndash;&gt;-->
+<!--        <dependency>-->
+<!--            <groupId>com.alibaba.cloud.ai</groupId>-->
+<!--            <artifactId>spring-ai-alibaba-starter-memory-jdbc</artifactId>-->
+<!--        </dependency>-->
+
         <!-- JavaMail 服务 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
-        <!-- redis -->
+        <!-- redis 缓存支持 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
         </dependency>
         <!-- 腾讯云 COS 对象存储 -->
         <dependency>
@@ -225,6 +240,22 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-advisors-vector-store</artifactId>
+        </dependency>
+        <!--JSON 序列库-->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>1.2.47</version>
+        </dependency>
+        <!-- Spring AI OpenAI 核心库（用于 DeepSeek、GLM 等 OpenAI 兼容接口，版本由 spring-ai-bom 管理） -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai</artifactId>
+        </dependency>
+        <!-- WebFlux（提供 WebClient + reactor-netty，OpenAI 流式调用必需） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
     </dependencies>
 
@@ -246,6 +277,15 @@
             </releases>
             <snapshots>
                 <enabled>true</enabled>
+            </snapshots>
+        </repository>
+        <!-- (推荐) Spring 官方 Milestone/里程碑仓库 -->
+        <repository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+            <snapshots>
+                <enabled>false</enabled>
             </snapshots>
         </repository>
     </repositories>
