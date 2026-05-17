@@ -109,3 +109,44 @@ create table if not exists manus_chat_history
     INDEX idx_user_chat (chatId, userId),  -- 新增索引，优化查询效率
     INDEX idx_user_time (userId, updateTime)  -- 按用户和时间查询的索引
 ) comment '上下文对话表' collate = utf8mb4_unicode_ci;
+
+-- 智能体表
+CREATE TABLE `agent` (
+                         `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                         `userId` VARCHAR(64) NOT NULL COMMENT '创建者用户ID',
+                         `name` VARCHAR(100) NOT NULL COMMENT '智能体名称',
+                         `avatar` VARCHAR(255) DEFAULT NULL COMMENT '头像URL',
+                         `systemPrompt` TEXT NOT NULL COMMENT '系统提示词',
+                         `modelId` VARCHAR(50) NOT NULL COMMENT '默认模型ID（对应application.yml中的模型id）',
+                         `temperature` DECIMAL(3,2) DEFAULT 0.7 COMMENT '温度参数 0-2',
+                         `maxTokens` INT DEFAULT 2048 COMMENT '最大输出token',
+                         `isPublic` TINYINT(1) DEFAULT 0 COMMENT '是否公开（0私有 1公开）',
+                         `status` TINYINT(1) DEFAULT 1 COMMENT '状态 0禁用 1启用',
+                         `useCount` INT DEFAULT 0 COMMENT '使用次数统计',
+                         `createTime` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                         `updateTime` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                         isDelete   tinyint  default 0                 not null comment '是否删除',
+                         INDEX `idx_user_id` (`userId`),
+                         INDEX `idx_public_status` (`isPublic`, `status`)
+);
+
+-- 自定义智能体历史对话表
+CREATE TABLE `chat_session` (
+                                `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                `userId` VARCHAR(64) NOT NULL,
+                                `agentId` BIGINT NOT NULL COMMENT '使用的智能体ID',
+                                `title` VARCHAR(200) DEFAULT '新对话',
+                                `createTime` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                `updateTime` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                INDEX `idx_user_agent` (`userId`, `agentId`)
+);
+
+-- 自定义智能体对话消息表
+CREATE TABLE `chat_message` (
+                                `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                `sessionId` BIGINT NOT NULL COMMENT '关联的会话ID',
+                                `role` VARCHAR(20) NOT NULL COMMENT '消息角色: user, assistant, system',
+                                `content` TEXT NOT NULL COMMENT '消息内容',
+                                `createTime` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                INDEX `idx_session_time` (`sessionId`, `createTime`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='自定义智能体消息记录表';

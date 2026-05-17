@@ -7,6 +7,9 @@ import LoginPage from '../views/LoginPage.vue'
 import RegisterPage from '../views/RegisterPage.vue'
 import UserManagePage from '../views/UserManagePage.vue'
 import DocsPage from '../views/DocsPage.vue'
+import AgentStudioPage from '../views/AgentStudioPage.vue'
+import AgentChatPage from '../views/AgentChatPage.vue'
+import AgentManagePage from '../views/AgentManagePage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -70,12 +73,39 @@ const router = createRouter({
       },
     },
     {
+      path: '/agents',
+      name: 'agents',
+      component: AgentStudioPage,
+      meta: {
+        title: '自定义智能体 - Neko AI Agent',
+        description: '创建、管理并使用自定义 AI 智能体。',
+      },
+    },
+    {
+      path: '/agent/:id/chat',
+      name: 'agentChat',
+      component: AgentChatPage,
+      meta: {
+        title: '自定义智能体对话 - Neko AI Agent',
+        description: '和自定义 AI 智能体进行实时流式对话。',
+      },
+    },
+    {
       path: '/admin/users',
       name: 'userManage',
       component: UserManagePage,
       meta: {
         title: '用户管理 - Neko AI Agent',
         description: '管理员用户管理页面，支持增删改查。',
+      },
+    },
+    {
+      path: '/admin/agents',
+      name: 'agentManage',
+      component: AgentManagePage,
+      meta: {
+        title: '智能体管理 - Neko AI Agent',
+        description: '管理员智能体管理页面，管理所有自定义智能体。',
       },
     },
     {

@@ -1,4 +1,4 @@
-package com.wenxi.neko_ai_agent.model.dto;
+package com.wenxi.neko_ai_agent.model.dto.chatmemory;
 
 import lombok.Data;
 

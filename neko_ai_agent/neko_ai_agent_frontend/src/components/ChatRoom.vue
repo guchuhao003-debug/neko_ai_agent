@@ -31,6 +31,7 @@ const props = defineProps({
   aiAvatar: { type: String, default: 'NA' },
   appType: { type: String, default: '' },
   showModelSelector: { type: Boolean, default: false },
+  extraParams: { type: Object, default: () => ({}) },
 })
 
 const emit = defineEmits(['update:chatId'])
@@ -465,7 +466,7 @@ const sendMessage = async () => {
   inputText.value = ''
   scrollToBottom()
 
-  const params = { message }
+  const params = { message, ...props.extraParams }
   if (props.useChatId && activeChatId.value) {
     params.chatId = activeChatId.value
   }
@@ -474,7 +475,8 @@ const sendMessage = async () => {
   }
 
   const sseUrl = getApiUrl(props.ssePath, params)
-  source = new EventSource(sseUrl)
+  // 自定义智能体接口依赖 Session 登录态，跨端口 SSE 必须显式携带 Cookie。
+  source = new EventSource(sseUrl, { withCredentials: true })
 
   const handleIncomingEvent = (event) => {
     const chunk = extractChunkText(event.data)
@@ -663,8 +665,10 @@ onBeforeUnmount(() => {
         >
           <!-- AI Avatar -->
           <div v-if="item.role === 'ai'" class="avatar ai-avatar">
+            <!-- Custom image avatar (URL) -->
+            <img v-if="aiAvatar && aiAvatar.startsWith('http')" :src="aiAvatar" alt="" class="ai-avatar-img" />
             <!-- Love Expert - Heart Icon -->
-            <svg v-if="aiAvatar === 'NL'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg v-else-if="aiAvatar === 'NL'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="rgba(255,100,150,0.2)" />
             </svg>
             <!-- Super Agent - Robot Icon -->

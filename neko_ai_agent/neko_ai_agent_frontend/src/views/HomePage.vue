@@ -21,6 +21,13 @@ const appList = [
     path: '/pet',
     icon: 'pet',
   },
+  {
+    title: '自定义智能体工作台',
+    desc: '创建角色，配置模型，沉淀专属能力',
+    subDesc: '面向每个任务的私人 Agent',
+    path: '/agents',
+    icon: 'custom',
+  },
 ]
 </script>
 
@@ -65,7 +72,7 @@ const appList = [
 
       <div class="card-grid">
         <router-link
-          v-for="app in appList"
+          v-for="app in appList.filter(item => item.path !== '/agents')"
           :key="app.path"
           :to="app.path"
           class="app-card"
@@ -76,6 +83,8 @@ const appList = [
               <img v-if="app.icon === 'love'" src="/loveapp.png" alt="AI 恋爱大师" class="card-icon-img card-icon-love" />
               <!-- Pet Expert Logo -->
               <img v-else-if="app.icon === 'pet'" src="/petapp.png" alt="AI 宠物专家" class="card-icon-img card-icon-pet" />
+              <!-- Custom Agent Logo -->
+              <img v-else-if="app.icon === 'custom'" src="/neko.png" alt="自定义智能体" class="card-icon-img" />
               <!-- Neko Manus Logo -->
               <img v-else src="/neko.png" alt="NekoMenus" class="card-icon-img" />
             </div>

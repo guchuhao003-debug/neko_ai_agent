@@ -2,7 +2,7 @@ package com.wenxi.neko_ai_agent.tools;
 
 import org.junit.jupiter.api.Test;
 
-import javax.mail.MessagingException;
+import jakarta.mail.MessagingException;
 
 import static org.junit.jupiter.api.Assertions.*;
 

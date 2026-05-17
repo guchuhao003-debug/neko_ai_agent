@@ -1,7 +1,7 @@
 package com.wenxi.neko_ai_agent.service;
 
-import com.wenxi.neko_ai_agent.model.dto.ChatHistoryDetailDTO;
-import com.wenxi.neko_ai_agent.model.dto.ChatHistoryListDTO;
+import com.wenxi.neko_ai_agent.model.dto.chatmemory.ChatHistoryDetailDTO;
+import com.wenxi.neko_ai_agent.model.dto.chatmemory.ChatHistoryListDTO;
 
 import java.util.List;
 

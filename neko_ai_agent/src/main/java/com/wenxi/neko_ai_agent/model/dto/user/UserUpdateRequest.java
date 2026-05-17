@@ -1,15 +1,18 @@
-package com.wenxi.neko_ai_agent.model.dto;
+package com.wenxi.neko_ai_agent.model.dto.user;
 
 import lombok.Data;
 
 import java.io.Serializable;
 
 /**
- * 添加用户请求体
+ * 更新用户信息请求体
  */
 @Data
-public class UserAddRequest implements Serializable {
-
+public class UserUpdateRequest implements Serializable {
+    /**
+     * id
+     */
+    private Long id;
 
     /**
      * 用户昵称
@@ -17,9 +20,9 @@ public class UserAddRequest implements Serializable {
     private String userName;
 
     /**
-     * 账号
+     * 用户邮箱
      */
-    private String userAccount;
+    private String userEmail;
 
     /**
      * 用户头像
@@ -35,7 +38,6 @@ public class UserAddRequest implements Serializable {
      * 用户角色：user/admin
      */
     private String userRole;
-
 
     private static final long serialVersionUID = 1L;
 }

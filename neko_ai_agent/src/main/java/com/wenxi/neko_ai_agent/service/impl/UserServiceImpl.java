@@ -10,7 +10,7 @@ import com.wenxi.neko_ai_agent.enums.UserRoleEnum;
 import com.wenxi.neko_ai_agent.exception.BusinessException;
 import com.wenxi.neko_ai_agent.exception.ErrorCode;
 import com.wenxi.neko_ai_agent.mapper.UserMapper;
-import com.wenxi.neko_ai_agent.model.dto.UserQueryRequest;
+import com.wenxi.neko_ai_agent.model.dto.user.UserQueryRequest;
 import com.wenxi.neko_ai_agent.model.entity.User;
 import com.wenxi.neko_ai_agent.model.vo.LoginUserVO;
 import com.wenxi.neko_ai_agent.model.vo.UserVO;
@@ -314,7 +314,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return loginUserVO;
     }
 
-
+    /**
+     * 判断用户是否为管理员
+     * @param user
+     * @return
+     */
+    @Override
+    public boolean isAdmin(User user) {
+        return user != null && UserRoleEnum.ADMIN.getValue().equals(user.getUserRole());
+    }
 
 }
 

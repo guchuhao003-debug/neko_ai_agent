@@ -10,7 +10,7 @@ import com.wenxi.neko_ai_agent.exception.BusinessException;
 import com.wenxi.neko_ai_agent.exception.ErrorCode;
 import com.wenxi.neko_ai_agent.exception.ThrowUtils;
 import com.wenxi.neko_ai_agent.manager.CosManager;
-import com.wenxi.neko_ai_agent.model.dto.*;
+import com.wenxi.neko_ai_agent.model.dto.user.*;
 import com.wenxi.neko_ai_agent.model.entity.User;
 import com.wenxi.neko_ai_agent.model.vo.LoginUserVO;
 import com.wenxi.neko_ai_agent.model.vo.UserVO;

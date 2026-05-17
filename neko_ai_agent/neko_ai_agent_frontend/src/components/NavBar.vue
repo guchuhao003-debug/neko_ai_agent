@@ -133,6 +133,11 @@ const goToUserManage = () => {
   router.push('/admin/users')
 }
 
+const goToAgentManage = () => {
+  closeDropdown()
+  router.push('/admin/agents')
+}
+
 const getAvatarText = () => {
   if (!currentUser.value) return ''
   const name = currentUser.value.userName || currentUser.value.userAccount || ''
@@ -199,6 +204,15 @@ const handleAvatarChange = async (event) => {
 
       <!-- Right Section -->
       <div class="navbar-right">
+        <!-- Custom Agent Button -->
+        <router-link to="/agents" class="navbar-agent-btn" title="自定义智能体">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 3l7 4v6c0 4.2-2.8 7.2-7 8-4.2-.8-7-3.8-7-8V7l7-4z" />
+            <path d="M9 12h6M12 9v6" />
+          </svg>
+          <span>自定义智能体</span>
+        </router-link>
+
         <!-- Announcement Button -->
         <button class="navbar-notify-btn" title="系统公告" @click="openAnnouncement">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -263,6 +277,16 @@ const handleAvatarChange = async (event) => {
                   <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                 </svg>
                 <span>用户管理</span>
+              </button>
+              <button v-if="currentUser.userRole === 'admin'" class="dropdown-item" @click="goToAgentManage">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="5" y="8" width="14" height="12" rx="2" />
+                  <path d="M12 2v4M8.5 8v-1a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v1" />
+                  <circle cx="9" cy="13" r="1" fill="currentColor" />
+                  <circle cx="15" cy="13" r="1" fill="currentColor" />
+                  <path d="M9 17h6" />
+                </svg>
+                <span>智能体管理</span>
               </button>
               <button class="dropdown-item dropdown-item-danger" @click="handleLogout">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

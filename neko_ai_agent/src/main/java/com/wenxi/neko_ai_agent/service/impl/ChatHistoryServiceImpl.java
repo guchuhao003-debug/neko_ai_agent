@@ -7,8 +7,8 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.wenxi.neko_ai_agent.mapper.LoveChatHistoryMapper;
 import com.wenxi.neko_ai_agent.mapper.ManusChatHistoryMapper;
 import com.wenxi.neko_ai_agent.mapper.PetChatHistoryMapper;
-import com.wenxi.neko_ai_agent.model.dto.ChatHistoryDetailDTO;
-import com.wenxi.neko_ai_agent.model.dto.ChatHistoryListDTO;
+import com.wenxi.neko_ai_agent.model.dto.chatmemory.ChatHistoryDetailDTO;
+import com.wenxi.neko_ai_agent.model.dto.chatmemory.ChatHistoryListDTO;
 import com.wenxi.neko_ai_agent.model.entity.ChatHistory;
 import com.wenxi.neko_ai_agent.service.ChatHistoryService;
 import jakarta.annotation.Resource;
@@ -16,10 +16,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+
 
 /**
  * 对话历史记录 Service 实现类
@@ -90,7 +91,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
 
         // 4. 回填 Redis
         try {
-            redisTemplate.opsForValue().set(cacheKey, result, CACHE_EXPIRE_MINUTES, TimeUnit.MINUTES);
+            redisTemplate.opsForValue().set(cacheKey, result, Duration.ofMinutes(CACHE_EXPIRE_MINUTES));
         } catch (Exception e) {
             log.warn("Redis 回填对话列表缓存失败: {}", e.getMessage());
         }
@@ -138,7 +139,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
 
         // 4. 回填 Redis
         try {
-            redisTemplate.opsForValue().set(cacheKey, dto, CACHE_EXPIRE_MINUTES, TimeUnit.MINUTES);
+            redisTemplate.opsForValue().set(cacheKey, dto, Duration.ofMinutes(CACHE_EXPIRE_MINUTES));
         } catch (Exception e) {
             log.warn("Redis 回填对话详情缓存失败: {}", e.getMessage());
         }
@@ -208,7 +209,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
             detailDTO.setChatId(chatId);
             detailDTO.setMessages(messages);
             detailDTO.setUpdateTime(new Date());
-            redisTemplate.opsForValue().set(detailCacheKey, detailDTO, CACHE_EXPIRE_MINUTES, TimeUnit.MINUTES);
+            redisTemplate.opsForValue().set(detailCacheKey, detailDTO, Duration.ofMinutes(CACHE_EXPIRE_MINUTES));
 
             // 删除列表缓存（使其下次查询时刷新）
             String listCacheKey = String.format(CACHE_LIST_PREFIX, appType, userId);

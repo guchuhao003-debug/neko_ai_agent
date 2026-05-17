@@ -2,7 +2,7 @@ package com.wenxi.neko_ai_agent.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.wenxi.neko_ai_agent.model.dto.UserQueryRequest;
+import com.wenxi.neko_ai_agent.model.dto.user.UserQueryRequest;
 import com.wenxi.neko_ai_agent.model.entity.User;
 import com.wenxi.neko_ai_agent.model.vo.LoginUserVO;
 import com.wenxi.neko_ai_agent.model.vo.UserVO;
@@ -93,5 +93,14 @@ public interface UserService extends IService<User> {
      * @return
      */
     LoginUserVO userLoginByEmail(String userEmail, HttpServletRequest request);
+
+    /**
+     * 判断用户是否为管理员
+     * @param user
+     * @return
+     */
+    boolean isAdmin(User user);
+
+
 
 }

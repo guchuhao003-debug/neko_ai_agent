@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wenxi.neko_ai_agent.mapper.AgentMapper">
+
+    <resultMap id="BaseResultMap" type="com.wenxi.neko_ai_agent.model.entity.Agent">
+            <id property="id" column="id" jdbcType="BIGINT"/>
+            <result property="userId" column="userId" jdbcType="VARCHAR"/>
+            <result property="name" column="name" jdbcType="VARCHAR"/>
+            <result property="avatar" column="avatar" jdbcType="VARCHAR"/>
+            <result property="systemPrompt" column="systemPrompt" jdbcType="VARCHAR"/>
+            <result property="modelId" column="modelId" jdbcType="VARCHAR"/>
+            <result property="temperature" column="temperature" jdbcType="DECIMAL"/>
+            <result property="maxTokens" column="maxTokens" jdbcType="INTEGER"/>
+            <result property="isPublic" column="isPublic" jdbcType="TINYINT"/>
+            <result property="status" column="status" jdbcType="TINYINT"/>
+            <result property="useCount" column="useCount" jdbcType="INTEGER"/>
+            <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
+            <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,userId,name,
+        avatar,systemPrompt,modelId,
+        temperature,maxTokens,isPublic,
+        status,useCount,createTime,
+        updateTime
+    </sql>
+</mapper>
