@@ -126,11 +126,13 @@ public class ToolCallAgent extends ReActAgent {
         ToolResponseMessage toolResponseMessage = (ToolResponseMessage) CollUtil.getLast(toolExecutionResult.conversationHistory());
         // 判断是否调用了终止工具
         boolean terminateToolCalled = toolResponseMessage.getResponses().stream()
-                .anyMatch(response -> response.name().equals("doTerminate"));
+                .anyMatch(response -> isTerminateTool(response.name()));
         // 如果调用了终止任务工具，则需要修改代理状态 -> FINISHED
         if(terminateToolCalled) {
             // 任务终止，修改状态
             setState(AgentState.FINISHED);
+            log.info("{} 调用了终止工具，停止后续步骤。", getName());
+            return "任务结束";
         }
         // 获取每个工具的响应信息
         String results = toolResponseMessage.getResponses().stream()
@@ -139,5 +141,56 @@ public class ToolCallAgent extends ReActAgent {
 
         log.info(results);
         return results;
+    }
+
+    /**
+     * 构建面向用户的 Markdown 最终答复。
+     *
+     * @param userPrompt 用户原始任务
+     * @param stepResults 步骤执行结果
+     * @return Markdown 最终答复
+     */
+    @Override
+    protected String buildFinalAnswer(String userPrompt, List<String> stepResults) {
+        if (stepResults == null || stepResults.isEmpty()) {
+            return "";
+        }
+        String finalPrompt = """
+                请基于用户任务和工具执行结果，生成给用户看的最终答复。
+
+                要求：
+                1. 只输出 Markdown 纯文本；
+                2. 不要输出 JSON、工具名称、函数名、Step 编号或原始工具返回字段；
+                3. 如果工具结果包含搜索结果，请综合为自然语言说明，并保留可点击链接；
+                4. 如果信息不足，请明确说明无法确认，不要编造。
+
+                用户任务：
+                %s
+
+                工具执行结果：
+                %s
+                """.formatted(userPrompt, String.join("\n\n", stepResults));
+        try {
+            ChatResponse chatResponse = getChatClient().prompt()
+                    .system(getSystemPrompt())
+                    .user(finalPrompt)
+                    .call()
+                    .chatResponse();
+            return chatResponse.getResult().getOutput().getText();
+        } catch (Exception e) {
+            log.warn("{} 生成最终答复失败: {}", getName(), e.getMessage());
+            return "## 处理结果\n\n已完成工具调用，但最终总结生成失败，请稍后重试。";
+        }
+    }
+
+    /**
+     * 判断工具名是否为终止工具。
+     *
+     * @param toolName 工具名
+     * @return 是否终止工具
+     */
+    private boolean isTerminateTool(String toolName) {
+        return StrUtil.isNotBlank(toolName)
+                && toolName.toLowerCase().contains("terminate");
     }
 }

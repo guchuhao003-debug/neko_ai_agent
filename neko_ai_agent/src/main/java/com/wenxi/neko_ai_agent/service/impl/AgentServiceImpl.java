@@ -3,10 +3,13 @@ package com.wenxi.neko_ai_agent.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
+import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
+import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
+import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.wenxi.neko_ai_agent.advisor.MyLoggerAdvisor;
+import com.wenxi.neko_ai_agent.app.BaseApp;
 import com.wenxi.neko_ai_agent.exception.BusinessException;
 import com.wenxi.neko_ai_agent.exception.ErrorCode;
 import com.wenxi.neko_ai_agent.exception.ThrowUtils;
@@ -19,20 +22,20 @@ import com.wenxi.neko_ai_agent.service.AgentService;
 import com.wenxi.neko_ai_agent.service.UserService;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.ChatOptions;
-import org.springframework.ai.tool.ToolCallbackProvider;
-import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
-import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import reactor.core.publisher.Flux;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.Map;
 
 /**
@@ -70,6 +73,55 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
 
     @Resource
     private ToolCallbackProvider toolCallbackProvider;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Value("${neko.cache.agent-config.ttl-minutes:360}")
+    private long agentCacheTtlMinutes;
+
+    private static final String AGENT_CACHE_KEY_PREFIX = "agent:config:";
+
+    // ==================== Agent 缓存 ====================
+
+    /**
+     * 从缓存或数据库获取 Agent 实体（不包含权限校验）。
+     */
+    private Agent getAgentById(Long agentId) {
+        String cacheKey = AGENT_CACHE_KEY_PREFIX + agentId;
+        try {
+            String cached = stringRedisTemplate.opsForValue().get(cacheKey);
+            if (cached != null) {
+                return JSON.parseObject(cached, Agent.class);
+            }
+        } catch (Exception e) {
+            log.warn("Redis 读取 Agent 缓存失败，降级查询 MySQL: " + e.getMessage());
+        }
+
+        Agent agent = this.baseMapper.selectById(agentId);
+        if (agent != null) {
+            try {
+                stringRedisTemplate.opsForValue().set(cacheKey, JSON.toJSONString(agent),
+                        Duration.ofMinutes(agentCacheTtlMinutes));
+            } catch (Exception e) {
+                log.warn("Redis 回填 Agent 缓存失败: " + e.getMessage());
+            }
+        }
+        return agent;
+    }
+
+    /**
+     * 使 Agent 缓存失效。
+     */
+    private void evictAgentCache(Long agentId) {
+        try {
+            stringRedisTemplate.delete(AGENT_CACHE_KEY_PREFIX + agentId);
+        } catch (Exception e) {
+            log.warn("Redis 删除 Agent 缓存失败: " + e.getMessage());
+        }
+    }
+
+    // ==================== CRUD ====================
 
     /**
      * 创建智能体。
@@ -127,6 +179,7 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
         }
         boolean updated = this.updateById(updateAgent);
         ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, "更新智能体失败");
+        evictAgentCache(agentUpdateRequest.getId());
         return this.getById(agentUpdateRequest.getId());
     }
 
@@ -148,6 +201,7 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
         transactionTemplate.execute(status -> {
             boolean result = this.removeById(agentId);
             ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "删除失败");
+            evictAgentCache(agentId);
             return true;
         });
     }
@@ -212,7 +266,7 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
     @Override
     public Agent getAgent(String userId, Long agentId) {
         ThrowUtils.throwIf(agentId == null || agentId <= 0, ErrorCode.PARAMS_ERROR);
-        Agent agent = this.getById(agentId);
+        Agent agent = getAgentById(agentId);
         ThrowUtils.throwIf(agent == null, ErrorCode.NOT_FOUND_ERROR, "智能体不存在");
 
         boolean owner = StrUtil.isNotBlank(userId) && agent.getUserId().equals(userId);
@@ -246,13 +300,8 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
                 "智能体已禁用");
 
         ChatModel chatModel = resolveChatModel(StrUtil.blankToDefault(modelId, agent.getModelId()));
-        ChatClient chatClient = ChatClient.builder(chatModel)
-                .defaultSystem(StrUtil.blankToDefault(agent.getSystemPrompt(), SYSTEM_PROMPT))
-                .defaultAdvisors(
-                        MessageChatMemoryAdvisor.builder(chatMemory).build(),
-                        new MyLoggerAdvisor()
-                )
-                .build();
+        String systemPrompt = StrUtil.blankToDefault(agent.getSystemPrompt(), SYSTEM_PROMPT);
+        ChatClient chatClient = BaseApp.buildChatClient(chatModel, systemPrompt, chatMemory);
         String conversationId = buildConversationId(userId, agentId, chatId);
 
         return chatClient.prompt()
@@ -306,6 +355,7 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
      * @param request 创建请求
      */
     private void validateAgentCreateRequest(AgentCreateRequest request) {
+        // 结构校验与 @Valid 注解双重保障
         ThrowUtils.throwIf(StrUtil.isBlank(request.getName()), ErrorCode.PARAMS_ERROR,
                 "智能体名称不能为空");
         ThrowUtils.throwIf(request.getName().length() > 50, ErrorCode.PARAMS_ERROR,
@@ -327,6 +377,7 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
      * @param request 更新请求
      */
     private void validateAgentUpdateRequest(AgentUpdateRequest request) {
+        // 结构校验与 @Valid 注解双重保障
         if (request.getName() != null) {
             ThrowUtils.throwIf(StrUtil.isBlank(request.getName()), ErrorCode.PARAMS_ERROR,
                     "智能体名称不能为空");
@@ -348,9 +399,6 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
 
     /**
      * 校验模型生成参数。
-     *
-     * @param temperature 温度
-     * @param maxTokens 最大 token 数
      */
     private void validateGenerationOptions(BigDecimal temperature, Integer maxTokens) {
         if (temperature != null) {

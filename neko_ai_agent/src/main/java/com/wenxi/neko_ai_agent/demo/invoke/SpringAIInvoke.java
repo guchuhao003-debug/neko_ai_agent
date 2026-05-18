@@ -5,11 +5,13 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
  * Spring AI 框架调用 AI 大模型
  */
+@Profile("dev")
 @Component
 // 实现 CommandLineRunner 接口，Spring Boot 启动时会自动调用 run 方法
 public class SpringAIInvoke implements CommandLineRunner {

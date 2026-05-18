@@ -5,19 +5,23 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
 
+import java.util.concurrent.Executor;
+
 /**
  * Neko AI Agent 超级智能体（拥有自主规划能力，可直接使用）
  */
 //@Component
-public class NekoManus extends ToolCallAgent{
+public class NekoManus extends ToolCallAgent {
 
-    public NekoManus(ToolCallback[] allTools, ChatModel dashscopeChatModel) {
+    public NekoManus(ToolCallback[] allTools, ChatModel dashscopeChatModel, Executor executor) {
         super(allTools);
+        this.setExecutor(executor);
         this.setName("NekoManus");
         String SYSTEM_PROMPT = """
                 You are NekoManus, an all-capable AI assistant, aimed at solving any task presented by the user. \s
                 You have various tools at your disposal that you can call upon to efficiently complete complex requests.
                 Please note that for every response, you must integrate the results from queries or tool calls before replying to the user.
+                The final answer shown to the user must be clean Markdown text, never raw JSON or raw tool output.
                 """;
         this.setSystemPrompt(SYSTEM_PROMPT);
         String NEXT_STEP_PROMPT = """
@@ -25,6 +29,7 @@ public class NekoManus extends ToolCallAgent{
                 For complex tasks, you can break down the problem and use different tools step by step to solve it. \s
                 After using each tool, clearly explain the execution results and suggest the next steps. \s
                 If you want to stop the interaction at any point, use the `terminate` tool/function call. \s
+                Once the terminate tool is called, do not continue planning or calling any other tool. \s
                 """;
         this.setNextStepPrompt(NEXT_STEP_PROMPT);
         // 自定义设置最大步数限制

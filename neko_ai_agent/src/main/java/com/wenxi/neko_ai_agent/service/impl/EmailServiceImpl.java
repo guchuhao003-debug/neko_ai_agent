@@ -7,7 +7,6 @@ import com.wenxi.neko_ai_agent.service.EmailService;
 import com.wenxi.neko_ai_agent.utils.EmailCodeUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.mail.SimpleMailMessage;
@@ -25,8 +24,8 @@ public class EmailServiceImpl implements EmailService {
     @Resource
     private JavaMailSender mailSender;
 
-    @Autowired
-    private StringRedisTemplate redisTemplate;
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     private static final long CODE_EXPIRE_SECONDS = 300; // 5分钟
 
@@ -74,9 +73,9 @@ public class EmailServiceImpl implements EmailService {
         String cooldownKey = COOLDOWN_KEY_PREFIX + userEmail;
 
         // 存入 redis，5分钟过期
-        redisTemplate.opsForValue().set(redisKey, code, Duration.ofSeconds(CODE_EXPIRE_SECONDS));
+        stringRedisTemplate.opsForValue().set(redisKey, code, Duration.ofSeconds(CODE_EXPIRE_SECONDS));
         // 标记冷却（防止 1分钟 内重复发送）
-        redisTemplate.opsForValue().set(cooldownKey, "1", Duration.ofSeconds(COOLDOWN_SECONDS));
+        stringRedisTemplate.opsForValue().set(cooldownKey, "1", Duration.ofSeconds(COOLDOWN_SECONDS));
         // 调用异步发送邮件
         sendEmailCodeAsync(userEmail, code);
     }
@@ -93,13 +92,13 @@ public class EmailServiceImpl implements EmailService {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "邮箱或验证码不可为空");
         }
         String redisKey = EMAIL_CODE_KEY_PREFIX + userEmail;
-        String correctCode = redisTemplate.opsForValue().get(redisKey);
+        String correctCode = stringRedisTemplate.opsForValue().get(redisKey);
         if(correctCode == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR,"验证码已过期或不存在");
         }
         if(correctCode.equals(inputCode)){
             // 验证成功，需要删除验证码（一次性使用）
-            redisTemplate.delete(redisKey);
+            stringRedisTemplate.delete(redisKey);
             return true;
         }
         return false;
@@ -120,7 +119,7 @@ public class EmailServiceImpl implements EmailService {
      */
     private void checkCooldown(String userEmail) {
         String cooldownKey = COOLDOWN_KEY_PREFIX + userEmail;
-        Boolean hasKey = redisTemplate.hasKey(cooldownKey);
+        Boolean hasKey = stringRedisTemplate.hasKey(cooldownKey);
         if(Boolean.TRUE.equals(hasKey)) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR,"操作过于频繁，请60秒后再试!");
         }

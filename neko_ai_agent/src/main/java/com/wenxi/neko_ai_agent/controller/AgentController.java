@@ -20,6 +20,7 @@ import com.wenxi.neko_ai_agent.service.AgentService;
 import com.wenxi.neko_ai_agent.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
@@ -63,7 +64,7 @@ public class AgentController {
      * @return 智能体 ID
      */
     @PostMapping("/create")
-    public BaseResponse<Long> createAgent(@RequestBody AgentCreateRequest agentCreateRequest,
+    public BaseResponse<Long> createAgent(@RequestBody @Valid AgentCreateRequest agentCreateRequest,
                                           HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         Agent agent = agentService.createAgent(String.valueOf(loginUser.getId()), agentCreateRequest);
@@ -78,7 +79,7 @@ public class AgentController {
      * @return 是否成功
      */
     @PostMapping("/update")
-    public BaseResponse<Boolean> updateAgent(@RequestBody AgentUpdateRequest agentUpdateRequest,
+    public BaseResponse<Boolean> updateAgent(@RequestBody @Valid AgentUpdateRequest agentUpdateRequest,
                                              HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         agentService.updateAgent(String.valueOf(loginUser.getId()), agentUpdateRequest);

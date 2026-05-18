@@ -70,3 +70,9 @@ logging:
   level:
     #org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor: debug
     org.springframework.ai: debug
+
+neko:
+  rag:
+    love-app:
+      # 基础对话默认不强依赖向量检索，避免 Embedding 服务不可用时阻断聊天。
+      enabled: false

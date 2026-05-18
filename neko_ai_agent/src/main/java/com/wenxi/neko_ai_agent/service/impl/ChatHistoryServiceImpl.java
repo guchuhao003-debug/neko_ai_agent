@@ -3,17 +3,15 @@ package com.wenxi.neko_ai_agent.service.impl;
 import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.wenxi.neko_ai_agent.mapper.LoveChatHistoryMapper;
-import com.wenxi.neko_ai_agent.mapper.ManusChatHistoryMapper;
-import com.wenxi.neko_ai_agent.mapper.PetChatHistoryMapper;
+import com.wenxi.neko_ai_agent.mapper.ChatHistoryMapper;
 import com.wenxi.neko_ai_agent.model.dto.chatmemory.ChatHistoryDetailDTO;
 import com.wenxi.neko_ai_agent.model.dto.chatmemory.ChatHistoryListDTO;
 import com.wenxi.neko_ai_agent.model.entity.ChatHistory;
 import com.wenxi.neko_ai_agent.service.ChatHistoryService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -31,21 +29,16 @@ import java.util.List;
 public class ChatHistoryServiceImpl implements ChatHistoryService {
 
     @Resource
-    private LoveChatHistoryMapper loveChatHistoryMapper;
+    private StringRedisTemplate stringRedisTemplate;
 
     @Resource
-    private PetChatHistoryMapper petChatHistoryMapper;
-
-    @Resource
-    private ManusChatHistoryMapper manusChatHistoryMapper;
-
-    @Resource
-    private RedisTemplate<String, Object> redisTemplate;
+    private ChatHistoryMapper chatHistoryMapper;
 
     /**
-     * Redis 缓存过期时间（30分钟）
+     * Redis 缓存最大 TTL（兜底值，正常通过 save/delete 主动失效缓存）。
      */
-    private static final long CACHE_EXPIRE_MINUTES = 30;
+    @Value("${neko.cache.chat-history.ttl-minutes:120}")
+    private long cacheTtlMinutes;
 
     /**
      * Redis Key 前缀
@@ -58,25 +51,23 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         // 1. 先查 Redis
         String cacheKey = String.format(CACHE_LIST_PREFIX, appType, userId);
         try {
-            Object cached = redisTemplate.opsForValue().get(cacheKey);
+            String cached = stringRedisTemplate.opsForValue().get(cacheKey);
             if (cached != null) {
                 log.debug("Redis 命中对话列表缓存: {}", cacheKey);
-                String json = JSON.toJSONString(cached);
-                return JSON.parseArray(json, ChatHistoryListDTO.class);
+                return JSON.parseArray(cached, ChatHistoryListDTO.class);
             }
         } catch (Exception e) {
             log.warn("Redis 读取对话列表失败，降级查询 MySQL: {}", e.getMessage());
         }
 
         // 2. Redis 未命中，查询 MySQL
-        BaseMapper<? extends ChatHistory> mapper = getMapper(appType);
         QueryWrapper<ChatHistory> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("userId", userId)
-                .eq("isDelete", 0)
-                .orderByDesc("updateTime");
+                    .eq("appType", appType)
+                    .eq("isDelete", 0)
+                    .orderByDesc("updateTime");
 
-        @SuppressWarnings("unchecked")
-        List<ChatHistory> records = ((BaseMapper<ChatHistory>) mapper).selectList(queryWrapper);
+        List<ChatHistory> records = chatHistoryMapper.selectList(queryWrapper);
 
         // 3. 转换为 DTO
         List<ChatHistoryListDTO> result = new ArrayList<>();
@@ -91,11 +82,10 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
 
         // 4. 回填 Redis
         try {
-            redisTemplate.opsForValue().set(cacheKey, result, Duration.ofMinutes(CACHE_EXPIRE_MINUTES));
+            stringRedisTemplate.opsForValue().set(cacheKey, JSON.toJSONString(result), Duration.ofMinutes(cacheTtlMinutes));
         } catch (Exception e) {
             log.warn("Redis 回填对话列表缓存失败: {}", e.getMessage());
         }
-
         return result;
     }
 
@@ -104,25 +94,23 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         // 1. 先查 Redis
         String cacheKey = String.format(CACHE_DETAIL_PREFIX, appType, chatId);
         try {
-            Object cached = redisTemplate.opsForValue().get(cacheKey);
+            String cached = stringRedisTemplate.opsForValue().get(cacheKey);
             if (cached != null) {
                 log.debug("Redis 命中对话详情缓存: {}", cacheKey);
-                String json = JSON.toJSONString(cached);
-                return JSON.parseObject(json, ChatHistoryDetailDTO.class);
+                return JSON.parseObject(cached, ChatHistoryDetailDTO.class);
             }
         } catch (Exception e) {
             log.warn("Redis 读取对话详情失败，降级查询 MySQL: {}", e.getMessage());
         }
 
         // 2. Redis 未命中，查询 MySQL
-        BaseMapper<? extends ChatHistory> mapper = getMapper(appType);
         QueryWrapper<ChatHistory> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("chatId", chatId)
                 .eq("userId", userId)
+                .eq("appType", appType)
                 .eq("isDelete", 0);
 
-        @SuppressWarnings("unchecked")
-        ChatHistory record = ((BaseMapper<ChatHistory>) mapper).selectOne(queryWrapper);
+        ChatHistory record = chatHistoryMapper.selectOne(queryWrapper);
         if (record == null) {
             return null;
         }
@@ -139,7 +127,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
 
         // 4. 回填 Redis
         try {
-            redisTemplate.opsForValue().set(cacheKey, dto, Duration.ofMinutes(CACHE_EXPIRE_MINUTES));
+            stringRedisTemplate.opsForValue().set(cacheKey, JSON.toJSONString(dto), Duration.ofMinutes(cacheTtlMinutes));
         } catch (Exception e) {
             log.warn("Redis 回填对话详情缓存失败: {}", e.getMessage());
         }
@@ -164,41 +152,35 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
             lastMessage = lastMessage.substring(0, 50) + "...";
         }
 
-        BaseMapper<? extends ChatHistory> mapper = getMapper(appType);
-
         // 查询是否已存在该 chatId 的记录
         QueryWrapper<ChatHistory> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("chatId", chatId)
                 .eq("userId", userId)
+                .eq("appType",appType)
                 .eq("isDelete", 0);
 
-        @SuppressWarnings("unchecked")
-        ChatHistory existing = ((BaseMapper<ChatHistory>) mapper).selectOne(queryWrapper);
+        ChatHistory existing = chatHistoryMapper.selectOne(queryWrapper);
 
         if (existing != null) {
             // 更新已有记录（仅更新消息内容，不覆盖标题）
             UpdateWrapper<ChatHistory> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("chatId", chatId)
                     .eq("userId", userId)
+                    .eq("appType",appType)
                     .eq("isDelete", 0)
                     .set("messages", messagesJson)
                     .set("editTime", new Date());
-
-            @SuppressWarnings("unchecked")
-            BaseMapper<ChatHistory> castedMapper = (BaseMapper<ChatHistory>) mapper;
-            castedMapper.update(null, updateWrapper);
+            chatHistoryMapper.update(null, updateWrapper);
         } else {
             // 新增记录
-            ChatHistory chatHistory = createEntityByAppType(appType);
+            ChatHistory chatHistory = new ChatHistory();
             chatHistory.setChatId(chatId);
+            chatHistory.setAppType(appType);
             chatHistory.setUserId(userId);
             chatHistory.setMessages(messagesJson);
             chatHistory.setLastMessage(lastMessage);
             chatHistory.setEditTime(new Date());
-
-            @SuppressWarnings("unchecked")
-            BaseMapper<ChatHistory> castedMapper = (BaseMapper<ChatHistory>) mapper;
-            castedMapper.insert(chatHistory);
+            chatHistoryMapper.insert(chatHistory);
         }
 
         // 更新 Redis 缓存
@@ -209,11 +191,11 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
             detailDTO.setChatId(chatId);
             detailDTO.setMessages(messages);
             detailDTO.setUpdateTime(new Date());
-            redisTemplate.opsForValue().set(detailCacheKey, detailDTO, Duration.ofMinutes(CACHE_EXPIRE_MINUTES));
+            stringRedisTemplate.opsForValue().set(detailCacheKey, JSON.toJSONString(detailDTO), Duration.ofMinutes(cacheTtlMinutes));
 
             // 删除列表缓存（使其下次查询时刷新）
             String listCacheKey = String.format(CACHE_LIST_PREFIX, appType, userId);
-            redisTemplate.delete(listCacheKey);
+            stringRedisTemplate.delete(listCacheKey);
         } catch (Exception e) {
             log.warn("Redis 更新对话缓存失败: {}", e.getMessage());
         }
@@ -221,52 +203,23 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
 
     @Override
     public boolean deleteChatHistory(Long userId, String chatId, String appType) {
-        BaseMapper<? extends ChatHistory> mapper = getMapper(appType);
-
         QueryWrapper<ChatHistory> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("chatId", chatId)
                 .eq("userId", userId)
+                .eq("appType", appType)
                 .eq("isDelete", 0);
 
-        @SuppressWarnings("unchecked")
-        int deleted = ((BaseMapper<ChatHistory>) mapper).delete(queryWrapper);
+        int deleted = chatHistoryMapper.delete(queryWrapper);
 
         if (deleted > 0) {
-            // 清除 Redis 缓存
-            try {
-                String detailCacheKey = String.format(CACHE_DETAIL_PREFIX, appType, chatId);
-                String listCacheKey = String.format(CACHE_LIST_PREFIX, appType, userId);
-                redisTemplate.delete(detailCacheKey);
-                redisTemplate.delete(listCacheKey);
-            } catch (Exception e) {
-                log.warn("Redis 删除缓存失败: {}", e.getMessage());
-            }
+            String detailCacheKey = String.format(CACHE_DETAIL_PREFIX, appType, chatId);
+            String listCacheKey = String.format(CACHE_LIST_PREFIX, appType, userId);
+            stringRedisTemplate.delete(detailCacheKey);
+            stringRedisTemplate.delete(listCacheKey);
             return true;
         }
         return false;
     }
 
-    /**
-     * 根据 appType 获取对应的 Mapper
-     */
-    private BaseMapper<? extends ChatHistory> getMapper(String appType) {
-        return switch (appType) {
-            case "love" -> loveChatHistoryMapper;
-            case "pet" -> petChatHistoryMapper;
-            case "manus" -> manusChatHistoryMapper;
-            default -> throw new IllegalArgumentException("不支持的应用类型: " + appType);
-        };
-    }
 
-    /**
-     * 根据 appType 创建对应的实体对象
-     */
-    private ChatHistory createEntityByAppType(String appType) {
-        return switch (appType) {
-            case "love" -> new com.wenxi.neko_ai_agent.model.entity.LoveChatHistory();
-            case "pet" -> new com.wenxi.neko_ai_agent.model.entity.PetChatHistory();
-            case "manus" -> new com.wenxi.neko_ai_agent.model.entity.ManusChatHistory();
-            default -> throw new IllegalArgumentException("不支持的应用类型: " + appType);
-        };
-    }
 }

@@ -49,21 +49,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      */
     @Override
     public long userRegister(String userName, String userEmail, String userAccount, String userPassword, String checkPassword) {
-        // 1.校验参数
+        // 1.校验参数（结构校验与 @Valid 注解双重保障）
         if (StrUtil.hasBlank(userName, userAccount, userPassword, checkPassword)) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"参数为空");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
         }
         if (userName.length() > 10) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"用户名过长");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户名过长");
         }
         if (userAccount.length() < 4) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"用户账号过短");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过短");
         }
         if (userPassword.length() < 8 || checkPassword.length() < 8) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"密码长度过短");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码长度过短");
         }
         if (!userPassword.equals(checkPassword)) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"两次密码不一致");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次密码不一致");
         }
 
         // 账号不能包含特殊字符
@@ -129,15 +129,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      */
     @Override
     public LoginUserVO userLogin(String userAccount, String userPassword, HttpServletRequest request) {
-        // 1. 校验参数
+        // 1. 校验参数（结构校验与 @Valid 注解双重保障）
         if (StrUtil.hasBlank(userAccount, userPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
         }
         if (userAccount.length() < 4) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"账号长度不能小于4");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号长度不能小于4");
         }
         if (userPassword.length() < 8) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"密码长度不能小于8");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码长度不能小于8");
         }
 
         // 2. 对用户传递的密码进行加密处理

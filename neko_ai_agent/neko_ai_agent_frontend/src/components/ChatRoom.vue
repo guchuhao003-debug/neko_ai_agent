@@ -50,6 +50,8 @@ let activeTypingTask = null
 let streamEnded = false
 let hasReceivedAiContent = false
 let lastStepText = ''
+let manualStopRequested = false
+let hasFinalResult = false
 
 // Step thinking mode state
 let stepThinkingIndex = -1
@@ -162,7 +164,7 @@ const saveToBackend = async () => {
 
 const finalizeStream = () => {
   // For step mode: mark thinking as complete and extract final result
-  if (props.stepBubbleMode && stepThinkingIndex >= 0) {
+  if (props.stepBubbleMode && stepThinkingIndex >= 0 && !manualStopRequested && !hasFinalResult) {
     const thinkingMsg = messages.value[stepThinkingIndex]
     if (thinkingMsg && thinkingMsg.steps && thinkingMsg.steps.length > 0) {
       thinkingMsg.thinkingDone = true
@@ -204,6 +206,8 @@ const finalizeStream = () => {
   streamEnded = false
   hasReceivedAiContent = false
   lastStepText = ''
+  manualStopRequested = false
+  hasFinalResult = false
   stepThinkingIndex = -1
   stepCount = 0
   closeCurrentStream()
@@ -214,6 +218,9 @@ const finalizeStream = () => {
 }
 
 const stopGenerating = () => {
+  manualStopRequested = true
+  closeCurrentStream()
+  stopTypewriter()
   // 标记 thinking 消息为已停止
   if (props.stepBubbleMode && stepThinkingIndex >= 0) {
     const thinkingMsg = messages.value[stepThinkingIndex]
@@ -231,7 +238,13 @@ const stopGenerating = () => {
       isStopNotice: true,
     })
   }
-  finalizeStream()
+  isLoading.value = false
+  streamEnded = false
+  hasReceivedAiContent = false
+  lastStepText = ''
+  stepThinkingIndex = -1
+  stepCount = 0
+  scrollToBottom()
 }
 
 const flushTypewriter = () => {
@@ -277,6 +290,25 @@ const enqueueChunk = (chunk, aiIndex, isStep = false, stepIdx = 0) => {
 const markStreamEnded = () => {
   streamEnded = true
   flushTypewriter()
+}
+
+const appendFinalResult = (content) => {
+  if (!content || manualStopRequested) return
+  hasFinalResult = true
+  if (props.stepBubbleMode && stepThinkingIndex >= 0) {
+    const thinkingMsg = messages.value[stepThinkingIndex]
+    if (thinkingMsg) {
+      thinkingMsg.thinkingDone = true
+      thinkingMsg.thinkingCollapsed = true
+    }
+  }
+  const finalIndex = messages.value.push({
+    role: 'ai',
+    content: '',
+    time: formatTime(),
+    isFinalResult: true,
+  }) - 1
+  enqueueChunk(content, finalIndex)
 }
 
 const copySessionId = () => {
@@ -432,6 +464,8 @@ const sendMessage = async () => {
   streamEnded = false
   hasReceivedAiContent = false
   lastStepText = ''
+  manualStopRequested = false
+  hasFinalResult = false
   stepThinkingIndex = -1
   stepCount = 0
   isLoading.value = true
@@ -479,6 +513,7 @@ const sendMessage = async () => {
   source = new EventSource(sseUrl, { withCredentials: true })
 
   const handleIncomingEvent = (event) => {
+    if (manualStopRequested) return
     const chunk = extractChunkText(event.data)
     if (chunk === null) {
       markStreamEnded()
@@ -505,17 +540,28 @@ const sendMessage = async () => {
     }
   }
 
+  const handleFinalEvent = (event) => {
+    if (manualStopRequested) return
+    const chunk = extractChunkText(event.data)
+    if (chunk) {
+      appendFinalResult(chunk)
+    }
+  }
+
   source.addEventListener('message', handleIncomingEvent)
+  source.addEventListener('step', handleIncomingEvent)
   source.addEventListener('token', handleIncomingEvent)
   source.addEventListener('delta', handleIncomingEvent)
   source.addEventListener('chunk', handleIncomingEvent)
   source.addEventListener('content', handleIncomingEvent)
   source.addEventListener('answer', handleIncomingEvent)
+  source.addEventListener('final', handleFinalEvent)
 
   source.addEventListener('done', () => { markStreamEnded() })
   source.addEventListener('complete', () => { markStreamEnded() })
 
   source.onerror = () => {
+    if (manualStopRequested) return
     const isConnectionClosed = source?.readyState === EventSource.CLOSED
     if (isConnectionClosed && hasReceivedAiContent) {
       markStreamEnded()

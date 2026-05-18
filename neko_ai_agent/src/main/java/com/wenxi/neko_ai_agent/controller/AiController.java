@@ -1,6 +1,8 @@
 package com.wenxi.neko_ai_agent.controller;
 
+import cn.hutool.core.util.StrUtil;
 import com.wenxi.neko_ai_agent.agent.NekoManus;
+import com.wenxi.neko_ai_agent.agent.NekoManusFactory;
 import com.wenxi.neko_ai_agent.app.LoveApp;
 import com.wenxi.neko_ai_agent.app.PetApp;
 import com.wenxi.neko_ai_agent.config.MultiModelProperties;
@@ -8,20 +10,18 @@ import com.wenxi.neko_ai_agent.service.UserService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +30,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/ai")
 public class AiController {
+
+    private static final String DEFAULT_DASHSCOPE_MODEL_ID = "qwen-plus";
 
     @Resource
     private LoveApp loveApp;
@@ -41,10 +43,7 @@ public class AiController {
     private ChatModel dashscopeChatModel;
 
     @Resource
-    private ToolCallback[] allTools;
-
-    @Resource
-    private ToolCallbackProvider toolCallbackProvider;
+    private NekoManusFactory nekoManusFactory;
 
     @Resource
     private UserService userService;
@@ -74,7 +73,8 @@ public class AiController {
      * 根据 modelId 获取对应的 ChatModel，不存在则返回默认模型
      */
     private ChatModel resolveChatModel(String modelId) {
-        if (modelId == null || modelId.isBlank()) {
+        // 默认 DashScope 模型统一使用自动配置 Bean，避免手动实例与 starter 配置不一致。
+        if (modelId == null || modelId.isBlank() || DEFAULT_DASHSCOPE_MODEL_ID.equals(modelId)) {
             return dashscopeChatModel;
         }
         return chatModelMap.getOrDefault(modelId, dashscopeChatModel);
@@ -100,7 +100,7 @@ public class AiController {
      * @return
      */
     @GetMapping(value = "/love_app/chat/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> doChatWithLoveAppSSEOld(String message, String chatId,
+    public Flux<String> doChatWithLoveAppSSE(String message, String chatId,
                                                 @RequestParam(required = false) String modelId) {
         ChatModel model = resolveChatModel(modelId);
         Flux<String> flux;
@@ -110,8 +110,9 @@ public class AiController {
             flux = loveApp.doChatByStream(message, chatId, model);
         }
         return flux.onErrorResume(e -> {
-            log.error("SSE streaming error with model [{}]: {}", modelId, e.getMessage(), e);
-            return Flux.just("[模型调用异常] " + e.getMessage());
+            String errorMessage = resolveModelErrorMessage(e);
+            log.error("SSE streaming error with model [{}]: {}", modelId, errorMessage, e);
+            return Flux.just("[模型调用异常] " + errorMessage);
         });
     }
 
@@ -183,9 +184,23 @@ public class AiController {
             flux = petApp.doChatStream(message, chatId, model);
         }
         return flux.onErrorResume(e -> {
-            log.error("SSE streaming error with model [{}]: {}", modelId, e.getMessage(), e);
-            return Flux.just("[模型调用异常] " + e.getMessage());
+            String errorMessage = resolveModelErrorMessage(e);
+            log.error("SSE streaming error with model [{}]: {}", modelId, errorMessage, e);
+            return Flux.just("[模型调用异常] " + errorMessage);
         });
+    }
+
+    /**
+     * 提取模型接口异常详情。
+     */
+    private String resolveModelErrorMessage(Throwable e) {
+        if (e instanceof WebClientResponseException webClientException) {
+            String responseBody = webClientException.getResponseBodyAsString();
+            if (StrUtil.isNotBlank(responseBody)) {
+                return responseBody;
+            }
+        }
+        return e.getMessage();
     }
 
     /**
@@ -195,17 +210,10 @@ public class AiController {
      * @return
      */
     @GetMapping("/manus/chat")
-    public SseEmitter doChatWithManusOld(String message, String chatId,
+    public SseEmitter doChatWithManus(String message, String chatId,
                                          @RequestParam(required = false) String modelId) {
-        // 合并本地工具和 MCP 工具
-        List<ToolCallback> combinedTools = new ArrayList<>(Arrays.asList(allTools));
-        ToolCallback[] mcpTools = (ToolCallback[]) toolCallbackProvider.getToolCallbacks();
-        combinedTools.addAll(Arrays.asList(mcpTools));
-        ToolCallback[] allCombinedTools = combinedTools.toArray(new ToolCallback[0]);
-        // 根据 modelId 选择模型
         ChatModel model = resolveChatModel(modelId);
-        // 单例，每次调用都需要重新创建一个实例，如果通过注入方式，那么用户调用的都是同一个实例，则容易造成阻塞
-        NekoManus nekoManus = new NekoManus(allCombinedTools, model);
+        NekoManus nekoManus = nekoManusFactory.create(model);
         return nekoManus.runStream(message);
     }
 

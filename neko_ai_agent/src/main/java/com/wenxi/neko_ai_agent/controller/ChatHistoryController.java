@@ -12,6 +12,7 @@ import com.wenxi.neko_ai_agent.service.ChatHistoryService;
 import com.wenxi.neko_ai_agent.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
@@ -82,9 +83,9 @@ public class ChatHistoryController {
      */
     @PostMapping("/save")
     public BaseResponse<Boolean> saveChatMessages(
-            @RequestBody SaveChatMessageRequest saveRequest,
+            @RequestBody @Valid SaveChatMessageRequest saveRequest,
             HttpServletRequest request) {
-        // 校验参数
+        // 校验参数（结构校验与 @Valid 注解双重保障）
         ThrowUtils.throwIf(saveRequest == null, ErrorCode.PARAMS_ERROR, "请求参数不能为空");
         ThrowUtils.throwIf(saveRequest.getChatId() == null || saveRequest.getChatId().isEmpty(),
                 ErrorCode.PARAMS_ERROR, "对话 ID 不能为空");

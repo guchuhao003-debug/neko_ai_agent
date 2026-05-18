@@ -1,5 +1,6 @@
 package com.wenxi.neko_ai_agent.model.dto.user;
 
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -12,6 +13,7 @@ public class UserUpdateRequest implements Serializable {
     /**
      * id
      */
+    @NotNull(message = "用户ID不能为空")
     private Long id;
 
     /**

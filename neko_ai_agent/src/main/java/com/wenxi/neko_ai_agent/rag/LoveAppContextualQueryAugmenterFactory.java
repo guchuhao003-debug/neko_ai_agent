@@ -3,12 +3,10 @@ package com.wenxi.neko_ai_agent.rag;
 
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.rag.generation.augmentation.ContextualQueryAugmenter;
-import org.springframework.stereotype.Component;
 
 /**
  * 创建上下文查询增强器的工厂
  */
-@Component
 public class LoveAppContextualQueryAugmenterFactory {
 
     /**

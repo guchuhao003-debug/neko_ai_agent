@@ -62,7 +62,7 @@ CREATE INDEX SPRING_AI_CHAT_MEMORY_CONVERSATION_ID_TIMESTAMP_IDX
 
 
 
--- 对话历史表
+-- 对话历史表（已迁移至统一的 chat_history 表，该表仅保留兼容旧数据）
 create table if not exists love_chat_history
 (
     id         bigint auto_increment comment 'id' primary key,
@@ -129,6 +129,23 @@ CREATE TABLE `agent` (
                          INDEX `idx_user_id` (`userId`),
                          INDEX `idx_public_status` (`isPublic`, `status`)
 );
+
+-- 统一对话历史表（替代 love_chat_history / pet_chat_history / manus_chat_history 三表）
+CREATE TABLE if not exists `chat_history` (
+    `id`         bigint auto_increment comment 'id' primary key,
+    `chatId`     varchar(255)                       not null comment '对话id',
+    `appType`    varchar(32)                        not null comment '应用类型: love / pet / manus',
+    `userId`     bigint                             not null comment '创建用户id',
+    `messages`   mediumtext                         not null comment '对话记录（JSON格式存储）',
+    `lastMessage` varchar(512)                      null comment '最后一条消息内容（用于列表展示）',
+    `createTime` datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    `editTime`   datetime default CURRENT_TIMESTAMP not null comment '编辑时间',
+    `updateTime` datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    `isDelete`   tinyint  default 0                 not null comment '是否删除',
+    INDEX `idx_user_app` (`userId`, `appType`),
+    INDEX `idx_chat_user` (`chatId`, `userId`, `appType`),
+    INDEX `idx_user_time` (`userId`, `appType`, `updateTime`)
+) comment '统一对话历史表' collate = utf8mb4_unicode_ci;
 
 -- 自定义智能体历史对话表
 CREATE TABLE `chat_session` (

@@ -24,6 +24,11 @@ public class ChatHistory implements Serializable {
     private String chatId;
 
     /**
+     * 应用类型
+     */
+    private String appType;
+
+    /**
      * 创建用户id
      */
     private Long userId;

@@ -221,6 +221,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
+        <!-- Bean Validation (JSR-303) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
         <!-- redis 缓存支持 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
