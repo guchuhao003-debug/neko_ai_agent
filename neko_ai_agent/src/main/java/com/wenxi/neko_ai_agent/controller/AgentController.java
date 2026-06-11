@@ -11,27 +11,28 @@ import com.wenxi.neko_ai_agent.exception.BusinessException;
 import com.wenxi.neko_ai_agent.exception.ErrorCode;
 import com.wenxi.neko_ai_agent.exception.ThrowUtils;
 import com.wenxi.neko_ai_agent.manager.CosManager;
+import com.wenxi.neko_ai_agent.model.dto.agent.AgentChatRequest;
 import com.wenxi.neko_ai_agent.model.dto.agent.AgentCreateRequest;
 import com.wenxi.neko_ai_agent.model.dto.agent.AgentUpdateRequest;
 import com.wenxi.neko_ai_agent.model.entity.Agent;
 import com.wenxi.neko_ai_agent.model.entity.User;
 import com.wenxi.neko_ai_agent.model.vo.AgentVO;
 import com.wenxi.neko_ai_agent.service.AgentService;
+import com.wenxi.neko_ai_agent.service.QuotaService;
 import com.wenxi.neko_ai_agent.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
 
 import java.io.File;
@@ -54,14 +55,13 @@ public class AgentController {
     private UserService userService;
 
     @Resource
+    private QuotaService quotaService;
+
+    @Resource
     private CosManager cosManager;
 
     /**
      * 创建智能体。
-     *
-     * @param agentCreateRequest 创建请求
-     * @param request HTTP 请求
-     * @return 智能体 ID
      */
     @PostMapping("/create")
     public BaseResponse<Long> createAgent(@RequestBody @Valid AgentCreateRequest agentCreateRequest,
@@ -73,10 +73,6 @@ public class AgentController {
 
     /**
      * 更新智能体。
-     *
-     * @param agentUpdateRequest 更新请求
-     * @param request HTTP 请求
-     * @return 是否成功
      */
     @PostMapping("/update")
     public BaseResponse<Boolean> updateAgent(@RequestBody @Valid AgentUpdateRequest agentUpdateRequest,
@@ -88,13 +84,9 @@ public class AgentController {
 
     /**
      * 删除智能体。
-     *
-     * @param deleteRequest 删除请求
-     * @param request HTTP 请求
-     * @return 是否成功
      */
     @PostMapping("/delete")
-    public BaseResponse<Boolean> deleteAgent(@RequestBody DeleteRequest deleteRequest,
+    public BaseResponse<Boolean> deleteAgent(@RequestBody @Valid DeleteRequest deleteRequest,
                                              HttpServletRequest request) {
         ThrowUtils.throwIf(deleteRequest == null || deleteRequest.getId() == null,
                 ErrorCode.PARAMS_ERROR);
@@ -104,12 +96,7 @@ public class AgentController {
     }
 
     /**
-     * 获取我的智能体列表。
-     *
-     * @param current 当前页
-     * @param pageSize 每页大小
-     * @param request HTTP 请求
-     * @return 智能体分页
+     * 获取当前用户的智能体列表。
      */
     @GetMapping("/list/my")
     public BaseResponse<Page<AgentVO>> listMyAgents(
@@ -124,10 +111,6 @@ public class AgentController {
 
     /**
      * 获取公开智能体列表。
-     *
-     * @param current 当前页
-     * @param pageSize 每页大小
-     * @return 智能体分页
      */
     @GetMapping("/list/public")
     public BaseResponse<Page<AgentVO>> listPublicAgents(
@@ -138,11 +121,7 @@ public class AgentController {
     }
 
     /**
-     * 获取所有智能体列表（管理员）。
-     *
-     * @param current 当前页
-     * @param pageSize 每页大小
-     * @return 智能体分页
+     * 管理员获取全部智能体列表。
      */
     @GetMapping("/list/all")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
@@ -154,11 +133,7 @@ public class AgentController {
     }
 
     /**
-     * 获取智能体详情。
-     *
-     * @param id 智能体 ID
-     * @param request HTTP 请求
-     * @return 智能体详情
+     * 获取智能体详情，公开智能体允许未登录查看。
      */
     @GetMapping("/get")
     public BaseResponse<AgentVO> getAgent(@RequestParam Long id, HttpServletRequest request) {
@@ -166,8 +141,11 @@ public class AgentController {
         try {
             User loginUser = userService.getLoginUser(request);
             userId = String.valueOf(loginUser.getId());
-        } catch (Exception ignored) {
-            // 公开智能体允许未登录查看，私有智能体会在 Service 内继续鉴权。
+        } catch (BusinessException e) {
+            if (e.getCode() != ErrorCode.NOT_LOGIN_ERROR.getCode()) {
+                throw e;
+            }
+            // 公开智能体允许匿名查看，私有智能体会在 Service 中继续鉴权。
         }
         Agent agent = agentService.getAgent(userId, id);
         return ResultUtils.success(toAgentVO(agent));
@@ -175,23 +153,16 @@ public class AgentController {
 
     /**
      * 自定义智能体 SSE 聊天。
-     *
-     * @param agentId 智能体 ID
-     * @param chatId 会话 ID
-     * @param message 用户消息
-     * @param modelId 临时模型 ID
-     * @param request HTTP 请求
-     * @return SSE 文本流
      */
-    @GetMapping(value = "/chat/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> chatWithAgent(@RequestParam Long agentId,
-                                      @RequestParam String chatId,
-                                      @RequestParam String message,
-                                      @RequestParam(required = false) String modelId,
+    @PostMapping(value = "/chat/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> chatWithAgent(@RequestBody @Valid AgentChatRequest agentChatRequest,
                                       HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
-        return agentService.streamChat(String.valueOf(loginUser.getId()), agentId, chatId,
-                modelId, message).onErrorResume(e -> {
+        Long agentId = agentChatRequest.getAgentId();
+        quotaService.deductForChat(loginUser.getId());
+        return agentService.streamChat(String.valueOf(loginUser.getId()), agentId,
+                agentChatRequest.getChatId(), agentChatRequest.getModelId(),
+                agentChatRequest.getMessage()).onErrorResume(e -> {
                     log.error("Agent SSE streaming error, agentId={}, userId={}: {}",
                             agentId, loginUser.getId(), e.getMessage(), e);
                     return Flux.just("[智能体调用异常] " + e.getMessage());
@@ -200,10 +171,6 @@ public class AgentController {
 
     /**
      * 上传智能体头像到 COS。
-     *
-     * @param multipartFile 图片文件
-     * @param request HTTP 请求
-     * @return 头像 URL
      */
     @PostMapping("/upload/avatar")
     public BaseResponse<String> uploadAgentAvatar(
@@ -251,9 +218,6 @@ public class AgentController {
 
     /**
      * 转换分页视图。
-     *
-     * @param agentPage 智能体分页
-     * @return 视图分页
      */
     private Page<AgentVO> toVoPage(Page<Agent> agentPage) {
         Page<AgentVO> voPage = new Page<>(agentPage.getCurrent(), agentPage.getSize(),
@@ -264,9 +228,6 @@ public class AgentController {
 
     /**
      * 转换智能体视图。
-     *
-     * @param agent 智能体
-     * @return 视图对象
      */
     private AgentVO toAgentVO(Agent agent) {
         AgentVO agentVO = new AgentVO();

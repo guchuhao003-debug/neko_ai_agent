@@ -6,6 +6,7 @@ import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.wenxi.neko_ai_agent.constant.QuotaConstant;
 import com.wenxi.neko_ai_agent.enums.UserRoleEnum;
 import com.wenxi.neko_ai_agent.exception.BusinessException;
 import com.wenxi.neko_ai_agent.exception.ErrorCode;
@@ -21,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -113,6 +115,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         user.setUserAccount(userAccount);
         user.setUserPassword(encryptPassword);
         user.setUserRole(UserRoleEnum.USER.getValue());
+        user.setDailyQuota(QuotaConstant.DAILY_FREE_QUOTA);
+        user.setBonusQuota(0);
+        user.setQuotaResetDate(LocalDate.now());
         boolean saveResult = this.save(user);
         if (!saveResult) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR,"注册失败");
@@ -153,7 +158,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
         }
         // 4. 保存用户的登录态
-        request.getSession().setAttribute(USER_LOGIN_STATE, user);
+        request.getSession().setAttribute(USER_LOGIN_STATE, buildSessionUser(user));
         // 返回用户视图
         return this.getLoginUserVO(user);
 
@@ -180,7 +185,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "该邮箱未注册");
         }
         // 3、记录登录态
-        request.getSession().setAttribute(USER_LOGIN_STATE, user);
+        request.getSession().setAttribute(USER_LOGIN_STATE, buildSessionUser(user));
         // 4、返回脱敏信息
         LoginUserVO loginUserVO = this.getLoginUserVO(user);
         return loginUserVO;
@@ -225,6 +230,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     /**
+     * 构建只用于 Session 识别身份的脱敏用户，避免密码哈希进入 HTTP Session。
+     */
+    private User buildSessionUser(User user) {
+        User sessionUser = new User();
+        sessionUser.setId(user.getId());
+        sessionUser.setUserRole(user.getUserRole());
+        return sessionUser;
+    }
+
+    /**
      * 获取加密后的密码
      * @param userPassword
      * @return
@@ -250,6 +265,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 2.用户信息转换
         UserVO userVO = new UserVO();
         BeanUtil.copyProperties(user, userVO );
+        fillQuotaView(user, userVO);
         return userVO;
     }
 
@@ -311,6 +327,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 2. 用户信息转换
         LoginUserVO loginUserVO = new LoginUserVO();
         BeanUtil.copyProperties(user,loginUserVO);
+        fillQuotaView(user, loginUserVO);
         return loginUserVO;
     }
 
@@ -322,6 +339,44 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public boolean isAdmin(User user) {
         return user != null && UserRoleEnum.ADMIN.getValue().equals(user.getUserRole());
+    }
+
+    /**
+     * 填充登录用户视图中的积分信息。
+     *
+     * @param user 用户实体
+     * @param loginUserVO 登录用户视图
+     */
+    private void fillQuotaView(User user, LoginUserVO loginUserVO) {
+        int dailyQuota = normalizeQuota(user.getDailyQuota());
+        int bonusQuota = normalizeQuota(user.getBonusQuota());
+        loginUserVO.setDailyQuota(dailyQuota);
+        loginUserVO.setBonusQuota(bonusQuota);
+        loginUserVO.setTotalQuota(dailyQuota + bonusQuota);
+    }
+
+    /**
+     * 填充用户视图中的积分信息。
+     *
+     * @param user 用户实体
+     * @param userVO 用户视图
+     */
+    private void fillQuotaView(User user, UserVO userVO) {
+        int dailyQuota = normalizeQuota(user.getDailyQuota());
+        int bonusQuota = normalizeQuota(user.getBonusQuota());
+        userVO.setDailyQuota(dailyQuota);
+        userVO.setBonusQuota(bonusQuota);
+        userVO.setTotalQuota(dailyQuota + bonusQuota);
+    }
+
+    /**
+     * 规整积分空值。
+     *
+     * @param quota 积分
+     * @return 非空积分
+     */
+    private int normalizeQuota(Integer quota) {
+        return quota == null ? 0 : quota;
     }
 
 }

@@ -62,9 +62,7 @@ export const getAgent = (id) => {
 export const uploadAgentAvatar = (file) => {
   const formData = new FormData()
   formData.append('file', file)
-  return http.post('/agent/upload/avatar', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+  return http.post('/agent/upload/avatar', formData)
 }
 
 /**

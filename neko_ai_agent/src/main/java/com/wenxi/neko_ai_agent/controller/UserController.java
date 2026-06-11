@@ -1,10 +1,13 @@
 package com.wenxi.neko_ai_agent.controller;
 
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wenxi.neko_ai_agent.annotation.AuthCheck;
 import com.wenxi.neko_ai_agent.common.DeleteRequest;
 import com.wenxi.neko_ai_agent.common.ResultUtils;
+import com.wenxi.neko_ai_agent.constant.QuotaConstant;
 import com.wenxi.neko_ai_agent.constant.UserConstant;
+import com.wenxi.neko_ai_agent.enums.UserRoleEnum;
 import com.wenxi.neko_ai_agent.exception.BaseResponse;
 import com.wenxi.neko_ai_agent.exception.BusinessException;
 import com.wenxi.neko_ai_agent.exception.ErrorCode;
@@ -16,6 +19,7 @@ import com.wenxi.neko_ai_agent.model.vo.LoginUserVO;
 import com.wenxi.neko_ai_agent.model.vo.UserVO;
 import com.wenxi.neko_ai_agent.service.EmailService;
 import com.wenxi.neko_ai_agent.service.UserService;
+import com.wenxi.neko_ai_agent.utils.EmailCodeUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -25,6 +29,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -100,6 +105,10 @@ public class UserController {
      */
     @PostMapping("/login/email")
     public BaseResponse<LoginUserVO> userLoginByEmail(@RequestParam String userEmail, @RequestParam String inputCode, HttpServletRequest request){
+        ThrowUtils.throwIf(StrUtil.hasBlank(userEmail, inputCode),
+                ErrorCode.PARAMS_ERROR, "邮箱或验证码不能为空");
+        ThrowUtils.throwIf(!EmailCodeUtil.isValidEmail(userEmail),
+                ErrorCode.PARAMS_ERROR, "邮箱格式不正确");
         // 校验验证码是否正确
         boolean checkCodeResult = emailService.verifyCode(userEmail, inputCode);
         ThrowUtils.throwIf(!checkCodeResult,ErrorCode.NOT_FOUND_ERROR,"验证码错误或已过期");
@@ -146,6 +155,10 @@ public class UserController {
         final String DEFAULT_PASSWORD = "12345678";
         String encryptPassword = userService.getEncryptPassword(DEFAULT_PASSWORD);
         user.setUserPassword(encryptPassword);
+        // 管理员创建用户时也补齐积分初始化，保证所有入口的新用户配额一致。
+        user.setDailyQuota(QuotaConstant.DAILY_FREE_QUOTA);
+        user.setBonusQuota(0);
+        user.setQuotaResetDate(LocalDate.now());
         // 插入数据库
         boolean result = userService.save(user);
         ThrowUtils.throwIf(!result,ErrorCode.OPERATION_ERROR);
@@ -159,11 +172,11 @@ public class UserController {
      */
     @GetMapping("/get")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE) // 仅限管理员权限
-    public BaseResponse<User> getUserById(long id) {
+    public BaseResponse<UserVO> getUserById(long id) {
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
         User user = userService.getById(id);
         ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR);
-        return ResultUtils.success(user);
+        return ResultUtils.success(userService.getUserVO(user));
     }
 
     /**
@@ -172,9 +185,11 @@ public class UserController {
      * @return
      */
     @GetMapping("/get/vo")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE) // 仅限管理员权限
     public BaseResponse<UserVO> getUserVOById(long id) {
-        BaseResponse<User> response = getUserById(id);
-        User user = response.getData();
+        ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+        User user = userService.getById(id);
+        ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR);
         return ResultUtils.success(userService.getUserVO(user));
     }
 
@@ -204,8 +219,19 @@ public class UserController {
         if (userUpdateRequest == null || userUpdateRequest.getId() < 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+        String userRole = userUpdateRequest.getUserRole();
+        ThrowUtils.throwIf(StrUtil.isNotBlank(userRole)
+                        && UserRoleEnum.getEnumByValue(userRole) == null,
+                ErrorCode.PARAMS_ERROR, "用户角色不合法");
+
+        // 管理员更新也使用字段白名单，避免复制密码、逻辑删除标记等敏感字段。
         User user = new User();
-        BeanUtils.copyProperties(userUpdateRequest, user);
+        user.setId(userUpdateRequest.getId());
+        user.setUserName(userUpdateRequest.getUserName());
+        user.setUserEmail(userUpdateRequest.getUserEmail());
+        user.setUserAvatar(userUpdateRequest.getUserAvatar());
+        user.setUserProfile(userUpdateRequest.getUserProfile());
+        user.setUserRole(userRole);
         boolean result = userService.updateById(user);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
@@ -215,15 +241,29 @@ public class UserController {
      * 用户修改个人信息  (通用)
      *
      * @param userUpdateRequest 更新请求参数
+     * @param request 请求
      * @return
      */
     @PostMapping("/global/update")
-    public BaseResponse<Boolean> GlobalUpdateUser(@RequestBody @Valid UserUpdateRequest userUpdateRequest) {
+    @AuthCheck
+    public BaseResponse<Boolean> globalUpdateUser(
+            @RequestBody @Valid UserUpdateRequest userUpdateRequest,
+            HttpServletRequest request) {
         if (userUpdateRequest == null || userUpdateRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+        ThrowUtils.throwIf(request == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        ThrowUtils.throwIf(!loginUser.getId().equals(userUpdateRequest.getId()),
+                ErrorCode.NO_AUTH_ERROR, "只能修改自己的个人信息");
+
+        // 仅允许用户更新个人资料字段，禁止通过通用接口修改 userRole 等敏感字段。
         User user = new User();
-        BeanUtils.copyProperties(userUpdateRequest, user);
+        user.setId(loginUser.getId());
+        user.setUserName(userUpdateRequest.getUserName());
+        user.setUserEmail(userUpdateRequest.getUserEmail());
+        user.setUserAvatar(userUpdateRequest.getUserAvatar());
+        user.setUserProfile(userUpdateRequest.getUserProfile());
         boolean result = userService.updateById(user);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);

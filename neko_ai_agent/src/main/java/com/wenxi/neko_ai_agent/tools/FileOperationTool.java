@@ -2,8 +2,11 @@ package com.wenxi.neko_ai_agent.tools;
 
 import cn.hutool.core.io.FileUtil;
 import com.wenxi.neko_ai_agent.constant.FileConstant;
+import com.wenxi.neko_ai_agent.utils.GeneratedFileUtils;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
+
+import java.nio.file.Path;
 
 /**
  * 文件操作工具类（提供文件读写功能）
@@ -18,15 +21,39 @@ public class FileOperationTool {
      * @return
      */
     // 工具描述：建议使用英文，便于 AI 理解
-    @Tool(description = "Read content from a file")
+    @Tool(description = """
+            Read content from a generated file. The fileName can be a bare filename, a saved path,
+            or an /api/files/... link. For binary files such as PDF, return an openable file link.
+            """)
     public String readFile(@ToolParam(description = "Name of a file to read") String fileName) {
-        String filePath = FILE_DIR + "/" + fileName;
+        Path existingFilePath = GeneratedFileUtils.resolveExistingFilePath(fileName);
+        if (existingFilePath != null && isPdfFile(existingFilePath)) {
+            String category = existingFilePath.getParent().getFileName().toString();
+            return "Existing generated file found: " + GeneratedFileUtils.buildMarkdownLink(
+                    category,
+                    existingFilePath.getFileName().toString(),
+                    "打开 PDF：" + existingFilePath.getFileName()
+            );
+        }
+        String filePath = existingFilePath == null
+                ? FILE_DIR + "/" + fileName
+                : existingFilePath.toString();
         try {
             return FileUtil.readUtf8String(filePath);
         } catch(Exception e){
             return "Error reading file: " + e.getMessage();
         }
 
+    }
+
+    /**
+     * 判断文件是否为 PDF。
+     *
+     * @param filePath 文件路径
+     * @return 是否 PDF 文件
+     */
+    private boolean isPdfFile(Path filePath) {
+        return filePath.getFileName().toString().toLowerCase().endsWith(".pdf");
     }
 
     /**
@@ -43,7 +70,12 @@ public class FileOperationTool {
         try {
             FileUtil.mkdir(FILE_DIR);
             FileUtil.writeUtf8String(content,filePath);
-            return "File written successfully to " + filePath;
+            String fileLink = GeneratedFileUtils.buildMarkdownLink(
+                    GeneratedFileUtils.FILE_CATEGORY,
+                    FileUtil.getName(filePath),
+                    "打开文件：" + FileUtil.getName(filePath)
+            );
+            return "File written successfully. " + fileLink;
         } catch (Exception e) {
             return "Error writing file: " + e.getMessage();
         }

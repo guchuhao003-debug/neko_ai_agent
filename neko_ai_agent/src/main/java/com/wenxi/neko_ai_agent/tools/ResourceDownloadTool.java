@@ -3,6 +3,7 @@ package com.wenxi.neko_ai_agent.tools;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.http.HttpUtil;
 import com.wenxi.neko_ai_agent.constant.FileConstant;
+import com.wenxi.neko_ai_agent.utils.GeneratedFileUtils;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 
@@ -25,7 +26,12 @@ public class ResourceDownloadTool {
             FileUtil.mkdir(fileDir);
             // 使用 Hutool 的 downloadFile 方法来下载资源
             HttpUtil.downloadFile(url, new File(filePath));
-            return "Resource downloaded successfully to " + filePath;
+            String fileLink = GeneratedFileUtils.buildMarkdownLink(
+                    GeneratedFileUtils.DOWNLOAD_CATEGORY,
+                    FileUtil.getName(filePath),
+                    "打开下载文件：" + FileUtil.getName(filePath)
+            );
+            return "Resource downloaded successfully. " + fileLink;
         } catch (Exception e) {
             return "Error downloading resource: " + e.getMessage();
         }

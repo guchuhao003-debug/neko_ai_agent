@@ -2,27 +2,26 @@
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import hljs from 'highlight.js/lib/core'
-import java from 'highlight.js/lib/languages/java'
 import bash from 'highlight.js/lib/languages/bash'
-import javascript from 'highlight.js/lib/languages/javascript'
 import 'highlight.js/styles/github-dark.css'
 
-hljs.registerLanguage('java', java)
 hljs.registerLanguage('bash', bash)
-hljs.registerLanguage('javascript', javascript)
 
 const router = useRouter()
 const activeSection = ref('intro')
 
 const sections = [
-  { id: 'intro', label: '项目简介' },
-  { id: 'tech-stack', label: '技术栈' },
-  { id: 'quick-start', label: '快速开始' },
-  { id: 'agents', label: '智能体使用指南' },
-  { id: 'agent-love', label: 'AI 恋爱大师', indent: true },
-  { id: 'agent-manus', label: 'NekoMenus 超级智能体', indent: true },
-  { id: 'agent-pet', label: 'AI 宠物专家', indent: true },
-  { id: 'architecture', label: '核心架构' },
+  { id: 'intro', label: '平台概览' },
+  { id: 'account', label: '账号与登录' },
+  { id: 'quota', label: '积分配额' },
+  { id: 'builtin-agents', label: '内置智能体' },
+  { id: 'agent-love', label: '心屿树洞', indent: true },
+  { id: 'agent-pet', label: '宠爱智问', indent: true },
+  { id: 'agent-manus', label: 'NekoMenus', indent: true },
+  { id: 'custom-agent', label: '自定义智能体' },
+  { id: 'chat-history', label: '对话与文件' },
+  { id: 'admin', label: '后台管理' },
+  { id: 'notes', label: '使用注意' },
 ]
 
 const scrollToSection = (id) => {
@@ -33,14 +32,14 @@ const scrollToSection = (id) => {
   }
 }
 
-// Track active section on scroll
+// 监听页面滚动，保持左侧目录高亮。
 let observer = null
 
 onMounted(() => {
   const options = {
     root: null,
     rootMargin: '-80px 0px -60% 0px',
-    threshold: 0
+    threshold: 0,
   }
   observer = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
@@ -55,7 +54,7 @@ onMounted(() => {
     if (el) observer.observe(el)
   })
 
-  // Apply syntax highlighting to all code blocks
+  // 高亮文档中的命令示例。
   nextTick(() => {
     document.querySelectorAll('.docs-code-block pre code').forEach((block) => {
       hljs.highlightElement(block)
@@ -70,7 +69,7 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="page docs-page">
-    <!-- Sidebar -->
+    <!-- 左侧目录 -->
     <aside class="docs-sidebar">
       <div class="docs-sidebar-header">
         <button class="docs-back-btn" @click="router.push('/')">
@@ -81,7 +80,7 @@ onBeforeUnmount(() => {
         </button>
       </div>
       <nav class="docs-nav">
-        <h3 class="docs-nav-title">目录</h3>
+        <h3 class="docs-nav-title">操作目录</h3>
         <button
           v-for="s in sections"
           :key="s.id"
@@ -94,389 +93,340 @@ onBeforeUnmount(() => {
       </nav>
     </aside>
 
-    <!-- Main Content -->
+    <!-- 主内容 -->
     <div class="docs-main">
-      <!-- 项目简介 -->
       <section id="intro" class="docs-section">
-        <h1 class="docs-page-title">Neko AI Agent 文档</h1>
-        <p class="docs-page-subtitle">全面了解 Neko AI Agent 智能体平台的功能与使用方法</p>
+        <h1 class="docs-page-title">Neko AI Agent 操作指南</h1>
+        <p class="docs-page-subtitle">
+          面向平台用户的功能使用指南，覆盖账号、积分、智能体、历史对话和后台管理。
+        </p>
 
-        <h2 class="docs-section-title">项目简介</h2>
+        <h2 class="docs-section-title">平台概览</h2>
         <div class="docs-divider"></div>
         <p class="docs-text">
-          <strong>Neko AI Agent</strong> 是一个多智能体 AI 对话平台，基于 Spring AI + 阿里云百炼大模型构建。
-          平台提供多种 AI 智能体，支持 SSE 实时流式对话、多轮会话记忆、RAG 知识增强、MCP 工具调用等能力。
+          <strong>Neko AI Agent</strong> 是一个多智能体 AI 对话平台。你可以使用
+          内置专家智能体完成咨询类对话，也可以使用 NekoMenus 处理更复杂的任务，
+          还可以在工作台中创建自己的专属智能体。
         </p>
         <div class="docs-feature-grid">
           <div class="docs-feature-card">
-            <div class="docs-feature-icon">🤖</div>
-            <h4>多智能体架构</h4>
-            <p>支持 ReAct Agent、ChatClient Agent 等多种智能体模式</p>
+            <div class="docs-feature-icon">AI</div>
+            <h4>多智能体入口</h4>
+            <p>恋爱、宠物、超级智能体和自定义智能体统一接入。</p>
           </div>
           <div class="docs-feature-card">
-            <div class="docs-feature-icon">⚡</div>
-            <h4>SSE 实时流式</h4>
-            <p>三种 SSE 流式模式，字符级实时输出</p>
+            <div class="docs-feature-icon">SSE</div>
+            <h4>实时流式回复</h4>
+            <p>回答会边生成边展示，并支持手动停止。</p>
           </div>
           <div class="docs-feature-card">
-            <div class="docs-feature-icon">🧠</div>
-            <h4>多轮记忆</h4>
-            <p>基于 chatId 的会话记忆，支持上下文连续对话</p>
+            <div class="docs-feature-icon">ID</div>
+            <h4>历史会话</h4>
+            <p>按会话 ID 保存对话，可继续查看、切换和删除历史记录。</p>
           </div>
           <div class="docs-feature-card">
-            <div class="docs-feature-icon">🔧</div>
-            <h4>工具编排</h4>
-            <p>8 种内置工具 + MCP 协议外部工具扩展</p>
+            <div class="docs-feature-icon">10</div>
+            <h4>积分控制</h4>
+            <p>每次智能体对话扣减积分，便于控制模型使用成本。</p>
           </div>
         </div>
       </section>
 
-      <!-- 技术栈 -->
-      <section id="tech-stack" class="docs-section">
-        <h2 class="docs-section-title">技术栈</h2>
+      <section id="account" class="docs-section">
+        <h2 class="docs-section-title">账号与登录</h2>
         <div class="docs-divider"></div>
-
-        <div class="docs-stack-group">
-          <h3 class="docs-subtitle">后端</h3>
-          <ul class="docs-list">
-            <li><strong>Spring Boot 3.4.4</strong> — Java 21，Web 应用框架</li>
-            <li><strong>Spring AI + spring-ai-alibaba-starter</strong> — AI 应用开发框架</li>
-            <li><strong>DashScope (通义千问 Qwen)</strong> — 阿里云百炼大模型服务</li>
-            <li><strong>MyBatis-Plus</strong> — ORM 数据库操作</li>
-            <li><strong>MCP (Model Context Protocol)</strong> — 外部工具协议集成</li>
-            <li><strong>腾讯云 COS</strong> — 对象存储（头像等文件上传）</li>
-          </ul>
+        <p class="docs-text">
+          平台的聊天、积分、自定义智能体和后台管理功能都需要登录。未登录用户访问受保护
+          页面时，会被引导到登录页。
+        </p>
+        <div class="docs-table-wrap">
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>操作</th>
+                <th>入口</th>
+                <th>说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>注册账号</td>
+                <td>/register</td>
+                <td>填写用户名、邮箱、账号和密码，创建普通用户账号。</td>
+              </tr>
+              <tr>
+                <td>账号密码登录</td>
+                <td>/login</td>
+                <td>使用账号和密码登录平台。</td>
+              </tr>
+              <tr>
+                <td>邮箱验证码登录</td>
+                <td>/login</td>
+                <td>发送邮箱验证码后登录，验证码错误或过期会提示失败。</td>
+              </tr>
+              <tr>
+                <td>退出登录</td>
+                <td>导航栏用户区域</td>
+                <td>退出后将无法继续访问聊天、积分和后台页面。</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-
-        <div class="docs-stack-group">
-          <h3 class="docs-subtitle">前端</h3>
-          <ul class="docs-list">
-            <li><strong>Vue 3</strong> — 渐进式前端框架（Composition API）</li>
-            <li><strong>Vite</strong> — 新一代前端构建工具</li>
-            <li><strong>Vue Router</strong> — 路由管理</li>
-            <li><strong>Axios</strong> — HTTP 请求（含 json-bigint 大数处理）</li>
-            <li><strong>EventSource</strong> — SSE 流式连接</li>
-          </ul>
-        </div>
-
-        <div class="docs-stack-group">
-          <h3 class="docs-subtitle">AI 模型</h3>
-          <ul class="docs-list">
-            <li><strong>Qwen-Max</strong> — 通义千问旗舰模型（用于超级智能体复杂推理）</li>
-            <li><strong>Qwen-Plus</strong> — 通义千问增强模型（用于恋爱专家、宠物专家）</li>
-          </ul>
-        </div>
-      </section>
-
-      <!-- 快速开始 -->
-      <section id="quick-start" class="docs-section">
-        <h2 class="docs-section-title">快速开始</h2>
-        <div class="docs-divider"></div>
-
-        <h3 class="docs-subtitle">环境要求</h3>
         <ul class="docs-list">
-          <li>JDK 21+</li>
-          <li>Maven 3.8+</li>
-          <li>Node.js 18+</li>
+          <li><strong>普通用户</strong> 可以使用智能体、创建自定义智能体和兑换积分。</li>
+          <li><strong>管理员</strong> 额外拥有用户管理、智能体管理和兑换码管理权限。</li>
+          <li><strong>资料安全</strong> 用户详情返回脱敏信息，Session 不保存密码哈希。</li>
         </ul>
-
-        <h3 class="docs-subtitle">启动后端</h3>
-        <div class="docs-code-block">
-          <div class="docs-code-header">
-            <span>Shell</span>
-          </div>
-          <pre><code class="language-bash"># 克隆项目
-git clone https://github.com/guchuhao003-debug/neko_ai_agent.git
-cd neko_ai_agent
-
-# 配置 API Key（编辑 application-local.yml）
-# dashscope.api-key: your-api-key
-
-# 启动后端服务（端口 8123，context-path /api）
-./mvnw spring-boot:run</code></pre>
-        </div>
-
-        <h3 class="docs-subtitle">启动前端</h3>
-        <div class="docs-code-block">
-          <div class="docs-code-header">
-            <span>Shell</span>
-          </div>
-          <pre><code class="language-bash"># 进入前端目录
-cd neko_ai_agent_frontend
-
-# 安装依赖
-npm install
-
-# 启动开发服务器（端口 5173）
-npm run dev</code></pre>
-        </div>
-
-        <p class="docs-text">启动后访问 <code class="docs-inline-code">http://localhost:5173</code> 即可使用平台。</p>
       </section>
 
-      <!-- 智能体使用指南 -->
-      <section id="agents" class="docs-section">
-        <h2 class="docs-section-title">智能体使用指南</h2>
+      <section id="quota" class="docs-section">
+        <h2 class="docs-section-title">积分配额</h2>
         <div class="docs-divider"></div>
-        <p class="docs-text">Neko AI Agent 平台提供三种不同类型的 AI 智能体，各具特色。以下分别介绍其功能、使用方法和实现原理。</p>
+        <p class="docs-text">
+          平台通过积分控制 AI 调用次数。进入 <code class="docs-inline-code">/quota</code>
+          可查看每日积分、额外积分、总积分和今日消耗情况。
+        </p>
+        <div class="docs-table-wrap">
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>项目</th>
+                <th>规则</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>每日免费积分</td>
+                <td>每天 00:00 自动刷新为 100。</td>
+              </tr>
+              <tr>
+                <td>对话扣减</td>
+                <td>每次智能体对话扣减 10 积分。</td>
+              </tr>
+              <tr>
+                <td>额外积分</td>
+                <td>通过管理员发放的兑换码获得，不随每日刷新清零。</td>
+              </tr>
+              <tr>
+                <td>兑换码有效期</td>
+                <td>管理员生成后 24 小时内有效，使用后立即失效。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <h3 class="docs-subtitle">兑换步骤</h3>
+        <ul class="docs-list">
+          <li>进入“我的积分配额”页面。</li>
+          <li>在兑换输入框中填写兑换码。</li>
+          <li>点击“立即兑换”，成功后额外积分会立刻到账。</li>
+          <li>若提示积分不足，需要等待每日刷新或兑换额外积分后再发起对话。</li>
+        </ul>
       </section>
 
-      <!-- AI 恋爱大师 -->
+      <section id="builtin-agents" class="docs-section">
+        <h2 class="docs-section-title">内置智能体</h2>
+        <div class="docs-divider"></div>
+        <p class="docs-text">
+          首页提供三个内置智能体入口。进入任一聊天页后，在底部输入问题，按
+          Enter 或点击发送按钮即可开始流式对话。Shift + Enter 可在输入框换行。
+        </p>
+      </section>
+
       <section id="agent-love" class="docs-section docs-section-sub">
         <h3 class="docs-subtitle docs-agent-title">
-          <span class="docs-agent-badge love">♥</span>
-          AI 恋爱大师
+          <span class="docs-agent-badge love">L</span>
+          心屿树洞
         </h3>
         <p class="docs-text">
-          AI 恋爱大师是一位专业的恋爱咨询顾问，能够分析感情状况、提供沟通建议、解答恋爱困惑。
-          支持多轮对话记忆和 RAG 知识增强，提供更加专业和个性化的建议。
+          心屿树洞面向恋爱、沟通、关系修复和情感困惑场景。它适合用来梳理关系问题、
+          准备沟通话术、分析约会体验或获得更温和的情绪支持。
         </p>
-
-        <h4 class="docs-small-title">示例 Prompt</h4>
+        <h4 class="docs-small-title">推荐问法</h4>
         <div class="docs-prompt-box">
-          <p>"我和女朋友因为异地恋经常吵架，她觉得我不够关心她，我该怎么改善？"</p>
+          <p>我和伴侣最近经常因为回复消息吵架，应该怎样沟通更合适？</p>
         </div>
         <div class="docs-prompt-box">
-          <p>"第一次约会应该聊些什么话题？怎么避免冷场？"</p>
-        </div>
-        <div class="docs-prompt-box">
-          <p>"对方回复消息越来越慢，是不是对我没兴趣了？我应该怎么做？"</p>
-        </div>
-
-        <h4 class="docs-small-title">实现流程</h4>
-        <div class="docs-code-block">
-          <div class="docs-code-header">
-            <span>Java — LoveApp.java</span>
-          </div>
-          <pre><code class="language-java">@Component
-public class LoveApp {
-    private final ChatClient chatClient;
-
-    public LoveApp(ChatModel chatModel, VectorStore vectorStore,
-                   FileBasedChatMemory chatMemory) {
-        this.chatClient = ChatClient.builder(chatModel)
-            .defaultSystem("你是一位专业的恋爱咨询专家...")
-            .defaultAdvisors(
-                new MessageChatMemoryAdvisor(chatMemory),  // 多轮记忆
-                new QuestionAnswerAdvisor(vectorStore)      // RAG 知识增强
-            )
-            .build();
-    }
-
-    public Flux&lt;String&gt; doChatByStream(String message, String chatId) {
-        return chatClient.prompt()
-            .user(message)
-            .advisors(a -> a.param("chat_memory_conversation_id", chatId))
-            .stream().content();
-    }
-}</code></pre>
+          <p>第一次约会想准备几个自然的话题，你能帮我列一个轻松的聊天路线吗？</p>
         </div>
         <ul class="docs-list">
-          <li><strong>ChatClient</strong> — 封装 AI 对话客户端</li>
-          <li><strong>MessageChatMemoryAdvisor</strong> — 基于 chatId 的多轮对话记忆</li>
-          <li><strong>QuestionAnswerAdvisor</strong> — RAG 向量检索增强回答质量</li>
-          <li><strong>FileBasedChatMemory</strong> — Kryo 序列化本地持久化会话</li>
+          <li>尽量描述关系背景、冲突原因和你希望达成的目标。</li>
+          <li>涉及现实安全、法律、医疗等问题时，请优先寻求专业人士帮助。</li>
         </ul>
       </section>
 
-      <!-- NekoMenus 超级智能体 -->
+      <section id="agent-pet" class="docs-section docs-section-sub">
+        <h3 class="docs-subtitle docs-agent-title">
+          <span class="docs-agent-badge pet">P</span>
+          宠爱智问
+        </h3>
+        <p class="docs-text">
+          宠爱智问面向宠物养护咨询，覆盖喂养、训练、日常护理和常见健康问题。
+          它可以给出基础判断和护理建议，但不能替代线下兽医诊断。
+        </p>
+        <h4 class="docs-small-title">推荐问法</h4>
+        <div class="docs-prompt-box">
+          <p>3 个月大的小猫一天应该喂几次？干粮和湿粮怎么搭配更合适？</p>
+        </div>
+        <div class="docs-prompt-box">
+          <p>我家金毛最近食欲下降、精神不好，需要观察哪些危险信号？</p>
+        </div>
+        <ul class="docs-list">
+          <li>请说明宠物品种、年龄、体重、症状持续时间和已采取的处理方式。</li>
+          <li>若出现持续呕吐、呼吸困难、抽搐、便血等症状，应立即就医。</li>
+        </ul>
+      </section>
+
       <section id="agent-manus" class="docs-section docs-section-sub">
         <h3 class="docs-subtitle docs-agent-title">
           <span class="docs-agent-badge manus">N</span>
           NekoMenus 超级智能体
         </h3>
         <p class="docs-text">
-          NekoMenus 是基于 ReAct（Reasoning + Acting）模式的超级智能体，具备多工具编排能力。
-          能自主拆解复杂任务为多个步骤，逐步思考并执行，支持文件操作、网页搜索、终端命令、PDF 生成等。
+          NekoMenus 适合处理需要拆解步骤、调用工具或生成文件的复杂任务。它会在
+          “深度思考”区域展示执行过程，并在最终答复中输出 Markdown 结果。
         </p>
-
-        <h4 class="docs-small-title">示例 Prompt</h4>
+        <h4 class="docs-small-title">适合任务</h4>
+        <ul class="docs-list">
+          <li>搜索资料并整理摘要。</li>
+          <li>读取或写入文件，生成可访问的结果文件。</li>
+          <li>下载资源、生成 PDF、执行安全范围内的终端命令。</li>
+          <li>在任务完成后通过最终答案总结执行结果。</li>
+        </ul>
+        <h4 class="docs-small-title">推荐问法</h4>
         <div class="docs-prompt-box">
-          <p>"帮我搜索关于 Vue 3 Composition API 的最新资料，总结核心用法并生成一份 PDF 文档。"</p>
+          <p>帮我搜索 Spring AI 的资料，整理核心能力，并生成一份 PDF 摘要。</p>
         </div>
         <div class="docs-prompt-box">
-          <p>"查看当前目录下的文件列表，找到所有 .java 文件并统计代码行数。"</p>
-        </div>
-        <div class="docs-prompt-box">
-          <p>"帮我发一封邮件给同事，内容是本周项目进展汇报。"</p>
-        </div>
-
-        <h4 class="docs-small-title">工具列表</h4>
-        <div class="docs-table-wrap">
-          <table class="docs-table">
-            <thead>
-              <tr>
-                <th>工具名称</th>
-                <th>功能描述</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>FileOperationTool</td><td>文件读写、创建、删除操作</td></tr>
-              <tr><td>WebSearchTool</td><td>联网搜索获取实时信息</td></tr>
-              <tr><td>WebScrapingTool</td><td>网页内容抓取与解析</td></tr>
-              <tr><td>ResourceDownloadTool</td><td>资源文件下载</td></tr>
-              <tr><td>TerminalOperationTool</td><td>终端命令执行</td></tr>
-              <tr><td>PDFGenerationTool</td><td>PDF 文档生成</td></tr>
-              <tr><td>QQEmailSenderTool</td><td>QQ 邮箱邮件发送</td></tr>
-              <tr><td>TerminateTool</td><td>任务终止信号</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h4 class="docs-small-title">实现流程</h4>
-        <div class="docs-code-block">
-          <div class="docs-code-header">
-            <span>Java — Agent 架构层次</span>
-          </div>
-          <pre><code class="language-plaintext">BaseAgent                    // 状态机: IDLE → RUNNING → FINISHED/ERROR
-  └─ ReActAgent              // Think → Act 循环模式
-       └─ ToolCallAgent      // 手动工具调用（兼容 DashScope）
-            └─ NekoManus     // 具体实现: 最多 20 步，多工具编排
-
-// NekoManus 执行流程:
-// 1. think() — 调用 LLM 分析任务，决定下一步行动
-// 2. act()   — 执行 LLM 选择的工具
-// 3. 检查 TerminateTool 是否被调用 → 结束
-// 4. 循环直到任务完成或达到最大步数</code></pre>
+          <p>查看当前项目的 Java 文件结构，按模块总结每个包的作用。</p>
         </div>
       </section>
 
-      <!-- AI 宠物专家 -->
-      <section id="agent-pet" class="docs-section docs-section-sub">
-        <h3 class="docs-subtitle docs-agent-title">
-          <span class="docs-agent-badge pet">🐾</span>
-          AI 宠物专家
-        </h3>
+      <section id="custom-agent" class="docs-section">
+        <h2 class="docs-section-title">自定义智能体</h2>
+        <div class="docs-divider"></div>
         <p class="docs-text">
-          AI 宠物专家提供科学的宠物养护建议，涵盖饮食、健康、训练、日常护理等方面。
-          通过 MCP 协议集成外部工具（如图片搜索），并支持多轮对话记忆。
+          自定义智能体工作台位于 <code class="docs-inline-code">/agents</code>。
+          你可以创建专属助手，也可以在公开广场中使用其他用户公开的智能体。
         </p>
-
-        <h4 class="docs-small-title">示例 Prompt</h4>
+        <h3 class="docs-subtitle">创建智能体</h3>
+        <ul class="docs-list">
+          <li>填写智能体名称，建议让名称直接表达用途。</li>
+          <li>上传头像，图片大小不能超过 2MB。</li>
+          <li>编写系统提示词，说明角色、任务范围、回答风格和禁止事项。</li>
+          <li>选择模型，设置温度和最大 Token。</li>
+          <li>按需要开启“公开到广场”和“启用”。</li>
+          <li>点击“创建智能体”，创建成功后可在“我的智能体”中开始对话。</li>
+        </ul>
+        <h3 class="docs-subtitle">提示词建议</h3>
         <div class="docs-prompt-box">
-          <p>"我家金毛最近食欲不振，精神也不太好，可能是什么原因？需要去医院吗？"</p>
-        </div>
-        <div class="docs-prompt-box">
-          <p>"3个月大的小猫应该怎么喂食？一天喂几次合适？"</p>
-        </div>
-        <div class="docs-prompt-box">
-          <p>"如何训练狗狗定点上厕所？有什么有效的方法？"</p>
-        </div>
-
-        <h4 class="docs-small-title">实现流程</h4>
-        <div class="docs-code-block">
-          <div class="docs-code-header">
-            <span>Java — PetApp.java</span>
-          </div>
-          <pre><code class="language-java">@Component
-public class PetApp {
-    private final ChatClient chatClient;
-
-    public PetApp(ChatModel chatModel, FileBasedChatMemory chatMemory,
-                  ToolCallbackProvider toolCallbackProvider) {
-        this.chatClient = ChatClient.builder(chatModel)
-            .defaultSystem("你是一位专业的宠物健康顾问...")
-            .defaultAdvisors(
-                new MessageChatMemoryAdvisor(chatMemory)
-            )
-            .defaultTools(toolCallbackProvider)  // MCP 工具
-            .build();
-    }
-
-    public Flux&lt;String&gt; doChatWithMcp(String message, String chatId) {
-        return chatClient.prompt()
-            .user(message)
-            .advisors(a -> a.param("chat_memory_conversation_id", chatId))
-            .stream().content();
-    }
-}</code></pre>
+          <p>
+            你是一名代码评审助手。请重点检查空指针、权限边界、异常处理和测试缺口。
+            回答时先给风险，再给修改建议。
+          </p>
         </div>
         <ul class="docs-list">
-          <li><strong>MCP Tools</strong> — 通过 stdio 传输连接外部 MCP 服务（高德地图、图片搜索等）</li>
-          <li><strong>ToolCallbackProvider</strong> — 自动注入所有已配置的 MCP 工具</li>
-          <li><strong>FileBasedChatMemory</strong> — 多轮对话上下文记忆</li>
+          <li>把“角色、能力、边界、输出格式”写清楚，效果通常更稳定。</li>
+          <li>公开智能体前，避免在提示词中写入密钥、内部地址或个人隐私。</li>
+          <li>停用后的智能体不会继续作为可用智能体提供对话。</li>
         </ul>
       </section>
 
-      <!-- 核心架构 -->
-      <section id="architecture" class="docs-section">
-        <h2 class="docs-section-title">核心架构</h2>
+      <section id="chat-history" class="docs-section">
+        <h2 class="docs-section-title">对话与文件</h2>
         <div class="docs-divider"></div>
+        <h3 class="docs-subtitle">历史对话</h3>
+        <ul class="docs-list">
+          <li>点击聊天页左上角的历史按钮，可打开历史对话侧边栏。</li>
+          <li>点击“新建对话”会生成新的会话 ID，当前页面消息会清空。</li>
+          <li>点击某条历史记录可加载该会话的完整消息。</li>
+          <li>点击删除按钮可删除对应历史记录，删除前页面会要求确认。</li>
+          <li>复制会话 ID 可用于排查问题或和管理员沟通。</li>
+        </ul>
 
-        <h3 class="docs-subtitle">SSE 流式通信</h3>
-        <p class="docs-text">平台支持三种 SSE 流式输出模式，适配不同场景：</p>
+        <h3 class="docs-subtitle">模型切换</h3>
+        <ul class="docs-list">
+          <li>支持模型选择的聊天页会在输入框左侧显示模型切换按钮。</li>
+          <li>切换模型只影响之后发送的新消息，不会重写历史回答。</li>
+          <li>自定义智能体默认使用创建时配置的模型，聊天页不显示临时模型选择器。</li>
+        </ul>
+
+        <h3 class="docs-subtitle">生成文件</h3>
+        <p class="docs-text">
+          NekoMenus 生成 PDF、下载资源或写入文件后，前端会把工具返回的本地路径转换为
+          可点击文件链接。点击链接时，后端会通过受控文件接口打开对应结果。
+        </p>
+      </section>
+
+      <section id="admin" class="docs-section">
+        <h2 class="docs-section-title">后台管理</h2>
+        <div class="docs-divider"></div>
+        <p class="docs-text">
+          后台页面仅管理员可访问。普通用户即使知道路径，也会被路由守卫拦截。
+        </p>
         <div class="docs-table-wrap">
           <table class="docs-table">
             <thead>
               <tr>
-                <th>模式</th>
-                <th>端点后缀</th>
-                <th>机制</th>
-                <th>适用场景</th>
+                <th>页面</th>
+                <th>路径</th>
+                <th>主要功能</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>Flux&lt;String&gt;</td>
-                <td>/sse</td>
-                <td>Spring WebFlux 响应式流</td>
-                <td>恋爱大师、宠物专家</td>
+                <td>用户管理</td>
+                <td>/admin/users</td>
+                <td>查询、添加、编辑、删除用户，并调整用户角色。</td>
               </tr>
               <tr>
-                <td>Flux&lt;ServerSentEvent&gt;</td>
-                <td>/server_sent_event</td>
-                <td>结构化 SSE（含元数据）</td>
-                <td>需要事件类型区分的场景</td>
+                <td>智能体管理</td>
+                <td>/admin/agents</td>
+                <td>查看全站智能体，编辑公开状态和启用状态，删除异常智能体。</td>
               </tr>
               <tr>
-                <td>SseEmitter</td>
-                <td>/sse_emitter</td>
-                <td>手动 SSE + 超时回调</td>
-                <td>超级智能体分步输出</td>
+                <td>兑换码管理</td>
+                <td>/admin/quota-codes</td>
+                <td>批量生成兑换码，按状态或关键字查询，删除兑换码。</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <ul class="docs-list">
+          <li>管理员添加用户时，默认密码为页面提示中的初始密码。</li>
+          <li>删除用户、智能体、兑换码等操作会要求确认，请确认对象后再执行。</li>
+          <li>兑换码生成后请及时分发，超过有效期后不能继续兑换。</li>
+        </ul>
+      </section>
 
-        <h3 class="docs-subtitle">前端打字机效果</h3>
+      <section id="notes" class="docs-section">
+        <h2 class="docs-section-title">使用注意</h2>
+        <div class="docs-divider"></div>
+        <ul class="docs-list">
+          <li>AI 回答可能存在不准确内容，重要结论请自行核验。</li>
+          <li>不要在对话中输入密码、密钥、身份证号等敏感信息。</li>
+          <li>涉及医疗、法律、财务、安全风险的问题，应咨询专业人士。</li>
+          <li>使用 NekoMenus 执行终端或文件任务时，请明确说明允许操作的范围。</li>
+          <li>如果页面长时间无响应，可停止生成后重新发送更清晰、更小范围的问题。</li>
+          <li>遇到模型调用异常、积分不足或登录失效时，请先检查积分和登录状态。</li>
+        </ul>
+
+        <h3 class="docs-subtitle">本地开发入口</h3>
         <div class="docs-code-block">
           <div class="docs-code-header">
-            <span>JavaScript — ChatRoom.vue (Typewriter Queue)</span>
+            <span>PowerShell</span>
           </div>
-          <pre><code class="language-javascript">// SSE 接收数据 → 推入队列
-eventSource.onmessage = (event) => {
-  typingQueue.push(event.data)
-}
+          <pre><code class="language-bash"># 后端
+.\mvnw spring-boot:run
 
-// 定时器每 20ms 从队列取字符渲染
-setInterval(() => {
-  if (typingQueue.length > 0) {
-    const chars = typingQueue.splice(0, 3) // 每次渲染 3 字符
-    currentMessage.value += chars.join('')
-  }
-}, 20)</code></pre>
+# 前端
+cd neko_ai_agent_frontend
+npm install
+npm run dev</code></pre>
         </div>
-
-        <h3 class="docs-subtitle">项目结构</h3>
-        <div class="docs-code-block">
-          <div class="docs-code-header">
-            <span>目录结构</span>
-          </div>
-          <pre><code class="language-plaintext">neko_ai_agent/
-├── src/main/java/com/wenxi/neko_ai_agent/
-│   ├── agent/          # Agent 智能体（BaseAgent → ReActAgent → NekoManus）
-│   ├── app/            # AI 应用（LoveApp、PetApp）
-│   ├── config/         # 配置类（COS、AI 模型）
-│   ├── controller/     # API 控制器（AiController、UserController）
-│   ├── manager/        # 管理器（CosManager）
-│   ├── service/        # 业务服务层
-│   └── tools/          # 工具类（8 种 Tool）
-├── neko_ai_agent_frontend/
-│   ├── src/views/      # 页面组件
-│   ├── src/components/ # 通用组件（ChatRoom、NavBar）
-│   └── src/api/        # API 接口封装
-└── neko-image-search-mcp-server/  # MCP 图片搜索服务</code></pre>
-        </div>
+        <p class="docs-text">
+          默认前端地址为 <code class="docs-inline-code">http://localhost:5173</code>，
+          默认后端接口前缀为 <code class="docs-inline-code">http://localhost:8123/api</code>。
+        </p>
       </section>
     </div>
   </main>

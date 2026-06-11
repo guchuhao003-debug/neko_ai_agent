@@ -151,6 +151,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         if (lastMessage.length() > 50) {
             lastMessage = lastMessage.substring(0, 50) + "...";
         }
+        lastMessage = resolveLastMessage(messages);
 
         // 查询是否已存在该 chatId 的记录
         QueryWrapper<ChatHistory> queryWrapper = new QueryWrapper<>();
@@ -169,6 +170,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
                     .eq("appType",appType)
                     .eq("isDelete", 0)
                     .set("messages", messagesJson)
+                    .set("lastMessage", lastMessage)
                     .set("editTime", new Date());
             chatHistoryMapper.update(null, updateWrapper);
         } else {
@@ -203,22 +205,47 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
 
     @Override
     public boolean deleteChatHistory(Long userId, String chatId, String appType) {
-        QueryWrapper<ChatHistory> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("chatId", chatId)
+        UpdateWrapper<ChatHistory> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("chatId", chatId)
                 .eq("userId", userId)
                 .eq("appType", appType)
-                .eq("isDelete", 0);
+                .eq("isDelete", 0)
+                .set("isDelete", 1)
+                .set("editTime", new Date());
 
-        int deleted = chatHistoryMapper.delete(queryWrapper);
+        int deleted = chatHistoryMapper.update(null, updateWrapper);
 
         if (deleted > 0) {
             String detailCacheKey = String.format(CACHE_DETAIL_PREFIX, appType, chatId);
             String listCacheKey = String.format(CACHE_LIST_PREFIX, appType, userId);
-            stringRedisTemplate.delete(detailCacheKey);
-            stringRedisTemplate.delete(listCacheKey);
+            try {
+                stringRedisTemplate.delete(detailCacheKey);
+                stringRedisTemplate.delete(listCacheKey);
+            } catch (Exception e) {
+                log.warn("Redis 鍒犻櫎瀵硅瘽缂撳瓨澶辫触: {}", e.getMessage());
+            }
             return true;
         }
         return false;
+    }
+
+    /**
+     * 从最新一条用户消息提取列表摘要，确保每次保存都会刷新 lastMessage。
+     */
+    private String resolveLastMessage(List<ChatHistoryDetailDTO.ChatMessage> messages) {
+        String lastMessage = "新对话";
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            ChatHistoryDetailDTO.ChatMessage message = messages.get(i);
+            if (message != null && "user".equals(message.getRole())
+                    && message.getContent() != null && !message.getContent().isBlank()) {
+                lastMessage = message.getContent();
+                break;
+            }
+        }
+        if (lastMessage.length() > 50) {
+            return lastMessage.substring(0, 50) + "...";
+        }
+        return lastMessage;
     }
 
 

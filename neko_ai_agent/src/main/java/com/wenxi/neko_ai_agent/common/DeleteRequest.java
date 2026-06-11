@@ -1,5 +1,6 @@
 package com.wenxi.neko_ai_agent.common;
 
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -13,6 +14,7 @@ public class DeleteRequest implements Serializable {
     /**
      * id
      */
+    @NotNull(message = "id 不能为空")
     private Long id;
 
     private static final long serialVersionUID = 1L;

@@ -16,6 +16,9 @@ create table if not exists user
     userAvatar   varchar(1024)                          null comment '用户头像',
     userProfile  varchar(512)                           null comment '用户简介',
     userRole     varchar(256) default 'user'            not null comment '用户角色：user/admin',
+    dailyQuota   int          default 100               not null comment '每日免费积分余额',
+    bonusQuota   int          default 0                 not null comment '额外积分余额',
+    quotaResetDate date                                 null comment '每日积分重置日期',
     editTime     datetime     default CURRENT_TIMESTAMP not null comment '编辑时间',
     createTime   datetime     default CURRENT_TIMESTAMP not null comment '创建时间',
     updateTime   datetime     default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
@@ -26,6 +29,14 @@ create table if not exists user
 
 -- 如果表已存在，增量添加 userEmail 字段
 ALTER TABLE user ADD COLUMN IF NOT EXISTS userEmail varchar(256) null comment '用户邮箱' AFTER userPassword;
+ALTER TABLE user ADD COLUMN IF NOT EXISTS dailyQuota int default 100 not null comment '每日免费积分余额' AFTER userRole;
+ALTER TABLE user ADD COLUMN IF NOT EXISTS bonusQuota int default 0 not null comment '额外积分余额' AFTER dailyQuota;
+ALTER TABLE user ADD COLUMN IF NOT EXISTS quotaResetDate date null comment '每日积分重置日期' AFTER bonusQuota;
+UPDATE user
+SET dailyQuota = 100,
+    bonusQuota = COALESCE(bonusQuota, 0),
+    quotaResetDate = CURDATE()
+WHERE quotaResetDate IS NULL;
 
 CREATE TABLE `ai_chat_memory` (
                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -167,3 +178,21 @@ CREATE TABLE `chat_message` (
                                 `createTime` DATETIME DEFAULT CURRENT_TIMESTAMP,
                                 INDEX `idx_session_time` (`sessionId`, `createTime`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='自定义智能体消息记录表';
+ 
+-- 积分兑换码表
+CREATE TABLE IF NOT EXISTS `quota_redeem_code` (
+    `id`           bigint auto_increment comment 'id' primary key,
+    `code`         varchar(64)                        not null comment '兑换码',
+    `quotaAmount`  int                                not null comment '兑换积分额度',
+    `status`       varchar(32) default 'UNUSED'       not null comment '状态：UNUSED/USED',
+    `expireTime`   datetime                           not null comment '过期时间',
+    `usedUserId`   bigint                             null comment '使用用户id',
+    `usedTime`     datetime                           null comment '使用时间',
+    `createUserId` bigint                             not null comment '创建管理员id',
+    `createTime`   datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    `updateTime`   datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    `isDelete`     tinyint  default 0                 not null comment '是否删除',
+    UNIQUE KEY `uk_code` (`code`),
+    INDEX `idx_status_expire` (`status`, `expireTime`),
+    INDEX `idx_create_time` (`createTime`)
+) comment '积分兑换码表' collate = utf8mb4_unicode_ci;

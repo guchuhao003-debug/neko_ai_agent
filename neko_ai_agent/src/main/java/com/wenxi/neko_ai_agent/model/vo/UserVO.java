@@ -46,6 +46,21 @@ public class UserVO {
     private String userRole;
 
     /**
+     * 每日免费积分余额。
+     */
+    private Integer dailyQuota;
+
+    /**
+     * 额外积分余额。
+     */
+    private Integer bonusQuota;
+
+    /**
+     * 当前可用总积分。
+     */
+    private Integer totalQuota;
+
+    /**
      * 创建时间
      */
     private Date createTime;

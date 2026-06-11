@@ -23,6 +23,8 @@ import java.util.List;
 @Slf4j
 public class ChatHistoryController {
 
+    private static final String CUSTOM_AGENT_APP_TYPE_PREFIX = "agent-";
+
     @Resource
     private ChatHistoryService chatHistoryService;
 
@@ -132,6 +134,21 @@ public class ChatHistoryController {
      * 校验应用类型是否合法
      */
     private boolean isValidAppType(String appType) {
-        return "love".equals(appType) || "pet".equals(appType) || "manus".equals(appType);
+        return "love".equals(appType) || "pet".equals(appType) || "manus".equals(appType)
+                || isCustomAgentAppType(appType);
+    }
+
+    /**
+     * 判断是否为自定义智能体的历史对话类型，格式为 agent-{agentId}。
+     *
+     * @param appType 应用类型
+     * @return 是否合法
+     */
+    private boolean isCustomAgentAppType(String appType) {
+        if (appType == null || !appType.startsWith(CUSTOM_AGENT_APP_TYPE_PREFIX)) {
+            return false;
+        }
+        String agentId = appType.substring(CUSTOM_AGENT_APP_TYPE_PREFIX.length());
+        return !agentId.isBlank() && agentId.chars().allMatch(Character::isDigit);
     }
 }

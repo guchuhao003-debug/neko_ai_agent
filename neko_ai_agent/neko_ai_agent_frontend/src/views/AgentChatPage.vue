@@ -16,6 +16,7 @@ const errorText = ref('')
 const agentId = computed(() => route.params.id)
 const sessionTitle = computed(() => agent.value?.name || '自定义智能体')
 const agentAvatar = computed(() => agent.value?.avatar || 'NM')
+const agentAppType = computed(() => `agent-${agentId.value}`)
 
 onMounted(async () => {
   if (!currentUser.value) {
@@ -53,12 +54,13 @@ onMounted(async () => {
     v-model:chat-id="chatId"
     :title="agent.name"
     sse-path="/agent/chat/sse"
+    stream-method="post"
     :use-chat-id="true"
-    :chat-id="chatId"
     :session-title="sessionTitle"
     :session-id="chatId"
     :ai-name="agent.name"
     :ai-avatar="agentAvatar"
+    :app-type="agentAppType"
     :show-model-selector="false"
     :extra-params="{ agentId: agent.id }"
   />

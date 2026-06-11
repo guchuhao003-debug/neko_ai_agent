@@ -80,9 +80,7 @@ export const GlobalUpdateUser = (data) => {
 export const uploadAvatar = (file) => {
   const formData = new FormData()
   formData.append('file', file)
-  return http.post('/user/upload/avatar', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  })
+  return http.post('/user/upload/avatar', formData)
 }
 
 // ==================== 管理员接口 ====================

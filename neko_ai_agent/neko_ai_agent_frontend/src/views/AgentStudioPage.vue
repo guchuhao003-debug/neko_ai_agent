@@ -189,9 +189,9 @@ onMounted(async () => {
     <section class="agent-studio-shell">
       <header class="agent-studio-header">
         <div>
-          <router-link to="/" class="agent-back-link">
+          <router-link to="/ai-agents" class="agent-back-link">
             <span class="back-arrow">‹</span>
-            <span>返回首页</span>
+            <span>返回 AI 智能体</span>
           </router-link>
           <p class="agent-eyebrow">Custom Agent Studio</p>
           <h1 class="agent-studio-title">自定义智能体</h1>

@@ -6,7 +6,7 @@ import NavBar from './components/NavBar.vue'
 const route = useRoute()
 const year = new Date().getFullYear()
 const isChatPage = computed(() =>
-  route.name === 'love' || route.name === 'manus' || route.name === 'pet' || route.name === 'agentChat'
+  ['love', 'manus', 'pet', 'agentChat'].includes(route.name)
 )
 const isAuthPage = computed(() => route.name === 'login' || route.name === 'register')
 const showNavbar = computed(() => !isChatPage.value && !isAuthPage.value)

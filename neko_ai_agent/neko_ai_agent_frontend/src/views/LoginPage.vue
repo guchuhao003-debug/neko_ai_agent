@@ -1,10 +1,11 @@
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { userLogin, sendCode, userLoginByEmail } from '../api/user'
 import { useUser } from '../composables/useUser'
 
 const router = useRouter()
+const route = useRoute()
 const { setUser } = useUser()
 
 // Tab 切换: 'account' | 'email'
@@ -28,6 +29,20 @@ const countdown = ref(0)
 const errorMessage = ref('')
 
 let countdownTimer = null
+
+/**
+ * 获取登录成功后的安全跳转地址。
+ */
+const getLoginRedirect = () => {
+  const redirect = route.query.redirect
+  const isSafeRedirect = typeof redirect === 'string'
+    && redirect.startsWith('/')
+    && !redirect.startsWith('//')
+  if (isSafeRedirect) {
+    return redirect
+  }
+  return '/'
+}
 
 const startCountdown = () => {
   countdown.value = 60
@@ -85,7 +100,7 @@ const handleAccountLogin = async () => {
     if (response.data.code === 0) {
       setUser(response.data.data)
       sessionStorage.setItem('just_logged_in', '1')
-      router.push('/')
+      router.push(getLoginRedirect())
     } else {
       errorMessage.value = response.data.message || '登录失败，请重试'
     }
@@ -117,7 +132,7 @@ const handleEmailLogin = async () => {
     if (response.data.code === 0) {
       setUser(response.data.data)
       sessionStorage.setItem('just_logged_in', '1')
-      router.push('/')
+      router.push(getLoginRedirect())
     } else {
       errorMessage.value = response.data.message || '登录失败，请重试'
     }

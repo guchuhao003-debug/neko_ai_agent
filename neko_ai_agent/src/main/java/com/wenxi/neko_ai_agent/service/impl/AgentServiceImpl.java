@@ -39,22 +39,18 @@ import java.time.Duration;
 import java.util.Map;
 
 /**
- * 智能体服务实现。
- */
+ * 鏅鸿兘浣撴湇鍔″疄鐜般€? */
 @Service
 public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements AgentService {
 
     /**
-     * 默认系统提示词。
-     */
+     * 榛樿绯荤粺鎻愮ず璇嶃€?     */
     public static final String SYSTEM_PROMPT = "你是一个智能 AI 助手，请根据用户问题给出"
             + "准确、清晰、结构化的回答。";
 
     private static final int DEFAULT_MAX_TOKENS = 2048;
 
     private static final BigDecimal DEFAULT_TEMPERATURE = BigDecimal.valueOf(0.7);
-
-    private static final int CHAT_MEMORY_CONVERSATION_ID_MAX_LENGTH = 36;
 
     @Resource
     private UserService userService;
@@ -82,11 +78,10 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
 
     private static final String AGENT_CACHE_KEY_PREFIX = "agent:config:";
 
-    // ==================== Agent 缓存 ====================
+    // ==================== Agent 缂撳瓨 ====================
 
     /**
-     * 从缓存或数据库获取 Agent 实体（不包含权限校验）。
-     */
+     * 浠庣紦瀛樻垨鏁版嵁搴撹幏鍙?Agent 瀹炰綋锛堜笉鍖呭惈鏉冮檺鏍￠獙锛夈€?     */
     private Agent getAgentById(Long agentId) {
         String cacheKey = AGENT_CACHE_KEY_PREFIX + agentId;
         try {
@@ -95,44 +90,55 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
                 return JSON.parseObject(cached, Agent.class);
             }
         } catch (Exception e) {
-            log.warn("Redis 读取 Agent 缓存失败，降级查询 MySQL: " + e.getMessage());
+            log.warn("Redis 璇诲彇 Agent 缂撳瓨澶辫触锛岄檷绾ф煡璇?MySQL: " + e.getMessage());
         }
 
         Agent agent = this.baseMapper.selectById(agentId);
         if (agent != null) {
             try {
-                stringRedisTemplate.opsForValue().set(cacheKey, JSON.toJSONString(agent),
-                        Duration.ofMinutes(agentCacheTtlMinutes));
+                stringRedisTemplate.opsForValue().set(AGENT_CACHE_KEY_PREFIX + agent.getId(),
+                        JSON.toJSONString(agent), Duration.ofMinutes(agentCacheTtlMinutes));
             } catch (Exception e) {
-                log.warn("Redis 回填 Agent 缓存失败: " + e.getMessage());
+                log.warn("Redis 鍥炲～ Agent 缂撳瓨澶辫触: " + e.getMessage());
             }
         }
         return agent;
     }
 
     /**
-     * 使 Agent 缓存失效。
-     */
+     * 鍐欏叆 Agent 閰嶇疆缂撳瓨锛岀紦瀛樺け璐ヤ笉褰卞搷涓绘祦绋嬨€?     */
+    private void cacheAgent(Agent agent) {
+        if (agent == null || agent.getId() == null) {
+            return;
+        }
+        try {
+            stringRedisTemplate.opsForValue().set(AGENT_CACHE_KEY_PREFIX + agent.getId(),
+                    JSON.toJSONString(agent), Duration.ofMinutes(agentCacheTtlMinutes));
+        } catch (Exception e) {
+            log.warn("Redis 鍐欏叆 Agent 缂撳瓨澶辫触: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 浣?Agent 缂撳瓨澶辨晥銆?     */
     private void evictAgentCache(Long agentId) {
         try {
             stringRedisTemplate.delete(AGENT_CACHE_KEY_PREFIX + agentId);
         } catch (Exception e) {
-            log.warn("Redis 删除 Agent 缓存失败: " + e.getMessage());
+            log.warn("Redis 鍒犻櫎 Agent 缂撳瓨澶辫触: " + e.getMessage());
         }
     }
 
     // ==================== CRUD ====================
 
     /**
-     * 创建智能体。
-     *
-     * @param userId 创建者用户 ID
-     * @param agentCreateRequest 创建请求
-     * @return 创建后的智能体
-     */
+     * 鍒涘缓鏅鸿兘浣撱€?     *
+     * @param userId 鍒涘缓鑰呯敤鎴?ID
+     * @param agentCreateRequest 鍒涘缓璇锋眰
+     * @return 鍒涘缓鍚庣殑鏅鸿兘浣?     */
     @Override
     public Agent createAgent(String userId, AgentCreateRequest agentCreateRequest) {
-        ThrowUtils.throwIf(StrUtil.isBlank(userId), ErrorCode.PARAMS_ERROR, "用户 ID 不能为空");
+        ThrowUtils.throwIf(StrUtil.isBlank(userId), ErrorCode.PARAMS_ERROR, "鐢ㄦ埛 ID 涓嶈兘涓虹┖");
         ThrowUtils.throwIf(agentCreateRequest == null, ErrorCode.PARAMS_ERROR);
         validateAgentCreateRequest(agentCreateRequest);
 
@@ -146,26 +152,26 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
         agent.setIsPublic(Boolean.TRUE.equals(agentCreateRequest.getIsPublic()));
         agent.setStatus(true);
         agent.setUseCount(0);
-        this.save(agent);
+        boolean saved = this.save(agent);
+        ThrowUtils.throwIf(!saved, ErrorCode.OPERATION_ERROR, "创建智能体失败");
+        cacheAgent(agent);
         return agent;
     }
 
     /**
-     * 更新智能体。
-     *
-     * @param userId 当前用户 ID
-     * @param agentUpdateRequest 更新请求
-     * @return 更新后的智能体
-     */
+     * 鏇存柊鏅鸿兘浣撱€?     *
+     * @param userId 褰撳墠鐢ㄦ埛 ID
+     * @param agentUpdateRequest 鏇存柊璇锋眰
+     * @return 鏇存柊鍚庣殑鏅鸿兘浣?     */
     @Override
     public Agent updateAgent(String userId, AgentUpdateRequest agentUpdateRequest) {
-        ThrowUtils.throwIf(StrUtil.isBlank(userId), ErrorCode.PARAMS_ERROR, "用户 ID 不能为空");
+        ThrowUtils.throwIf(StrUtil.isBlank(userId), ErrorCode.PARAMS_ERROR, "鐢ㄦ埛 ID 涓嶈兘涓虹┖");
         ThrowUtils.throwIf(agentUpdateRequest == null, ErrorCode.PARAMS_ERROR);
         ThrowUtils.throwIf(agentUpdateRequest.getId() == null || agentUpdateRequest.getId() <= 0,
-                ErrorCode.PARAMS_ERROR, "智能体 ID 不能为空");
+                ErrorCode.PARAMS_ERROR, "鏅鸿兘浣?ID 涓嶈兘涓虹┖");
 
         Agent oldAgent = this.getById(agentUpdateRequest.getId());
-        ThrowUtils.throwIf(oldAgent == null, ErrorCode.NOT_FOUND_ERROR, "智能体不存在");
+        ThrowUtils.throwIf(oldAgent == null, ErrorCode.NOT_FOUND_ERROR, "鏅鸿兘浣撲笉瀛樺湪");
         checkManageAuth(oldAgent, userId);
         validateAgentUpdateRequest(agentUpdateRequest);
 
@@ -184,10 +190,9 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
     }
 
     /**
-     * 删除智能体。
-     *
-     * @param agentId 智能体 ID
-     * @param loginUser 当前登录用户
+     * 鍒犻櫎鏅鸿兘浣撱€?     *
+     * @param agentId 鏅鸿兘浣?ID
+     * @param loginUser 褰撳墠鐧诲綍鐢ㄦ埛
      */
     @Override
     public void deleteAgent(Long agentId, User loginUser) {
@@ -195,28 +200,26 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
         ThrowUtils.throwIf(agentId == null || agentId <= 0, ErrorCode.PARAMS_ERROR);
 
         Agent agent = this.getById(agentId);
-        ThrowUtils.throwIf(agent == null, ErrorCode.NOT_FOUND_ERROR, "当前智能体不存在");
+        ThrowUtils.throwIf(agent == null, ErrorCode.NOT_FOUND_ERROR, "褰撳墠鏅鸿兘浣撲笉瀛樺湪");
         checkManageAuth(agent, String.valueOf(loginUser.getId()));
 
         transactionTemplate.execute(status -> {
             boolean result = this.removeById(agentId);
-            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "删除失败");
+            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "鍒犻櫎澶辫触");
             evictAgentCache(agentId);
             return true;
         });
     }
 
     /**
-     * 获取用户智能体列表。
-     *
-     * @param userId 用户 ID
-     * @param page 页码
-     * @param size 每页大小
-     * @return 分页智能体
-     */
+     * 鑾峰彇鐢ㄦ埛鏅鸿兘浣撳垪琛ㄣ€?     *
+     * @param userId 鐢ㄦ埛 ID
+     * @param page 椤电爜
+     * @param size 姣忛〉澶у皬
+     * @return 鍒嗛〉鏅鸿兘浣?     */
     @Override
     public Page<Agent> listUserAgents(String userId, int page, int size) {
-        ThrowUtils.throwIf(StrUtil.isBlank(userId), ErrorCode.PARAMS_ERROR, "用户 ID 不能为空");
+        ThrowUtils.throwIf(StrUtil.isBlank(userId), ErrorCode.PARAMS_ERROR, "鐢ㄦ埛 ID 涓嶈兘涓虹┖");
         Page<Agent> pageRequest = new Page<>(normalizePage(page), normalizePageSize(size));
         LambdaQueryWrapper<Agent> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Agent::getUserId, userId)
@@ -225,12 +228,10 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
     }
 
     /**
-     * 获取公开智能体列表。
-     *
-     * @param page 页码
-     * @param size 每页大小
-     * @return 公开智能体分页
-     */
+     * 鑾峰彇鍏紑鏅鸿兘浣撳垪琛ㄣ€?     *
+     * @param page 椤电爜
+     * @param size 姣忛〉澶у皬
+     * @return 鍏紑鏅鸿兘浣撳垎椤?     */
     @Override
     public Page<Agent> listPublicAgents(int page, int size) {
         Page<Agent> pageRequest = new Page<>(normalizePage(page), normalizePageSize(size));
@@ -242,11 +243,10 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
     }
 
     /**
-     * 获取所有智能体列表（管理员）。
-     *
-     * @param page 页码
-     * @param size 每页大小
-     * @return 所有智能体分页
+     * 鑾峰彇鎵€鏈夋櫤鑳戒綋鍒楄〃锛堢鐞嗗憳锛夈€?     *
+     * @param page 椤电爜
+     * @param size 姣忛〉澶у皬
+     * @return 鎵€鏈夋櫤鑳戒綋鍒嗛〉
      */
     @Override
     public Page<Agent> listAllAgents(int page, int size) {
@@ -257,54 +257,52 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
     }
 
     /**
-     * 获取单个智能体详情。
-     *
-     * @param userId 当前用户 ID，可为空
-     * @param agentId 智能体 ID
-     * @return 智能体详情
-     */
+     * 鑾峰彇鍗曚釜鏅鸿兘浣撹鎯呫€?     *
+     * @param userId 褰撳墠鐢ㄦ埛 ID锛屽彲涓虹┖
+     * @param agentId 鏅鸿兘浣?ID
+     * @return 鏅鸿兘浣撹鎯?     */
     @Override
     public Agent getAgent(String userId, Long agentId) {
         ThrowUtils.throwIf(agentId == null || agentId <= 0, ErrorCode.PARAMS_ERROR);
         Agent agent = getAgentById(agentId);
-        ThrowUtils.throwIf(agent == null, ErrorCode.NOT_FOUND_ERROR, "智能体不存在");
+        ThrowUtils.throwIf(agent == null, ErrorCode.NOT_FOUND_ERROR, "鏅鸿兘浣撲笉瀛樺湪");
 
-        boolean owner = StrUtil.isNotBlank(userId) && agent.getUserId().equals(userId);
+        boolean owner = StrUtil.isNotBlank(userId) && StrUtil.equals(agent.getUserId(), userId);
         boolean admin = isAdmin(userId);
         if ((!Boolean.TRUE.equals(agent.getStatus()) || !Boolean.TRUE.equals(agent.getIsPublic()))
                 && !owner && !admin) {
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权访问该智能体");
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "鏃犳潈璁块棶璇ユ櫤鑳戒綋");
         }
         return agent;
     }
 
     /**
-     * 流式调用自定义智能体。
-     *
-     * @param userId 当前用户 ID
-     * @param agentId 智能体 ID
-     * @param chatId 会话 ID
-     * @param modelId 临时指定模型 ID
-     * @param userMessage 用户消息
-     * @return SSE 文本流
-     */
+     * 娴佸紡璋冪敤鑷畾涔夋櫤鑳戒綋銆?     *
+     * @param userId 褰撳墠鐢ㄦ埛 ID
+     * @param agentId 鏅鸿兘浣?ID
+     * @param chatId 浼氳瘽 ID
+     * @param modelId 涓存椂鎸囧畾妯″瀷 ID
+     * @param userMessage 鐢ㄦ埛娑堟伅
+     * @return SSE 鏂囨湰娴?     */
     @Override
     public Flux<String> streamChat(String userId, Long agentId, String chatId, String modelId,
                                    String userMessage) {
-        ThrowUtils.throwIf(StrUtil.isBlank(userId), ErrorCode.PARAMS_ERROR, "用户 ID 不能为空");
-        ThrowUtils.throwIf(StrUtil.isBlank(chatId), ErrorCode.PARAMS_ERROR, "会话 ID 不能为空");
-        ThrowUtils.throwIf(StrUtil.isBlank(userMessage), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
+        ThrowUtils.throwIf(StrUtil.isBlank(userId), ErrorCode.PARAMS_ERROR, "鐢ㄦ埛 ID 涓嶈兘涓虹┖");
+        ThrowUtils.throwIf(StrUtil.isBlank(chatId), ErrorCode.PARAMS_ERROR, "浼氳瘽 ID 涓嶈兘涓虹┖");
+        ThrowUtils.throwIf(StrUtil.isBlank(userMessage), ErrorCode.PARAMS_ERROR, "鐢ㄦ埛娑堟伅涓嶈兘涓虹┖");
 
         Agent agent = this.getAgent(userId, agentId);
         ThrowUtils.throwIf(!Boolean.TRUE.equals(agent.getStatus()), ErrorCode.FORBIDDEN_ERROR,
-                "智能体已禁用");
+                "鏅鸿兘浣撳凡绂佺敤");
 
         ChatModel chatModel = resolveChatModel(StrUtil.blankToDefault(modelId, agent.getModelId()));
         String systemPrompt = StrUtil.blankToDefault(agent.getSystemPrompt(), SYSTEM_PROMPT);
         ChatClient chatClient = BaseApp.buildChatClient(chatModel, systemPrompt, chatMemory);
         String conversationId = buildConversationId(userId, agentId, chatId);
+        ChatOptions chatOptions = buildChatOptions(chatModel, agent);
 
         return chatClient.prompt()
+                .options(chatOptions)
                 .user(userMessage)
                 .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, conversationId))
                 .stream()
@@ -313,19 +311,15 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
     }
 
     /**
-     * 构造聊天记忆会话 ID。
-     *
-     * @param userId 当前用户 ID
-     * @param agentId 智能体 ID
-     * @param chatId 前端会话 ID
-     * @return 可安全写入聊天记忆表的会话 ID
+     * 鏋勯€犺亰澶╄蹇嗕細璇?ID銆?     *
+     * @param userId 褰撳墠鐢ㄦ埛 ID
+     * @param agentId 鏅鸿兘浣?ID
+     * @param chatId 鍓嶇浼氳瘽 ID
+     * @return 鍙畨鍏ㄥ啓鍏ヨ亰澶╄蹇嗚〃鐨勪細璇?ID
      */
     private String buildConversationId(String userId, Long agentId, String chatId) {
         String rawConversationId = "agent:" + agentId + ":" + userId + ":" + chatId;
-        String conversationId = SecureUtil.md5(rawConversationId);
-        ThrowUtils.throwIf(conversationId.length() > CHAT_MEMORY_CONVERSATION_ID_MAX_LENGTH,
-                ErrorCode.OPERATION_ERROR, "聊天记忆会话 ID 超出限制");
-        return conversationId;
+        return SecureUtil.md5(rawConversationId);
     }
 
     private ChatOptions buildChatOptions(ChatModel chatModel, Agent agent) {
@@ -350,12 +344,11 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
     }
 
     /**
-     * 校验新增智能体请求。
-     *
-     * @param request 创建请求
+     * 鏍￠獙鏂板鏅鸿兘浣撹姹傘€?     *
+     * @param request 鍒涘缓璇锋眰
      */
     private void validateAgentCreateRequest(AgentCreateRequest request) {
-        // 结构校验与 @Valid 注解双重保障
+        // 缁撴瀯鏍￠獙涓?@Valid 娉ㄨВ鍙岄噸淇濋殰
         ThrowUtils.throwIf(StrUtil.isBlank(request.getName()), ErrorCode.PARAMS_ERROR,
                 "智能体名称不能为空");
         ThrowUtils.throwIf(request.getName().length() > 50, ErrorCode.PARAMS_ERROR,
@@ -365,19 +358,18 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
         ThrowUtils.throwIf(request.getSystemPrompt().length() > 4000, ErrorCode.PARAMS_ERROR,
                 "系统提示词不能超过 4000 个字符");
         ThrowUtils.throwIf(StrUtil.isBlank(request.getModelId()), ErrorCode.PARAMS_ERROR,
-                "模型 ID 不能为空");
+                "妯″瀷 ID 涓嶈兘涓虹┖");
         validateModelId(request.getModelId());
         validateGenerationOptions(request.getTemperature(),
                 resolveMaxTokens(request.getMaxTokens(), request.getMaxToken()));
     }
 
     /**
-     * 校验更新智能体请求。
-     *
-     * @param request 更新请求
+     * 鏍￠獙鏇存柊鏅鸿兘浣撹姹傘€?     *
+     * @param request 鏇存柊璇锋眰
      */
     private void validateAgentUpdateRequest(AgentUpdateRequest request) {
-        // 结构校验与 @Valid 注解双重保障
+        // 缁撴瀯鏍￠獙涓?@Valid 娉ㄨВ鍙岄噸淇濋殰
         if (request.getName() != null) {
             ThrowUtils.throwIf(StrUtil.isBlank(request.getName()), ErrorCode.PARAMS_ERROR,
                     "智能体名称不能为空");
@@ -398,25 +390,23 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
     }
 
     /**
-     * 校验模型生成参数。
-     */
+     * 鏍￠獙妯″瀷鐢熸垚鍙傛暟銆?     */
     private void validateGenerationOptions(BigDecimal temperature, Integer maxTokens) {
         if (temperature != null) {
             BigDecimal min = BigDecimal.ZERO;
             BigDecimal max = BigDecimal.valueOf(2);
             ThrowUtils.throwIf(temperature.compareTo(min) < 0 || temperature.compareTo(max) > 0,
-                    ErrorCode.PARAMS_ERROR, "温度参数必须在 0 到 2 之间");
+                    ErrorCode.PARAMS_ERROR, "娓╁害鍙傛暟蹇呴』鍦?0 鍒?2 涔嬮棿");
         }
         if (maxTokens != null) {
             ThrowUtils.throwIf(maxTokens < 256 || maxTokens > 8192, ErrorCode.PARAMS_ERROR,
-                    "最大 Token 数必须在 256 到 8192 之间");
+                    "鏈€澶?Token 鏁板繀椤诲湪 256 鍒?8192 涔嬮棿");
         }
     }
 
     /**
-     * 校验模型 ID 是否可用。
-     *
-     * @param modelId 模型 ID
+     * 鏍￠獙妯″瀷 ID 鏄惁鍙敤銆?     *
+     * @param modelId 妯″瀷 ID
      */
     private void validateModelId(String modelId) {
         ThrowUtils.throwIf(!chatModelMap.containsKey(modelId), ErrorCode.PARAMS_ERROR,
@@ -424,25 +414,21 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
     }
 
     /**
-     * 校验管理权限。
-     *
-     * @param agent 智能体
-     * @param userId 当前用户 ID
+     * 鏍￠獙绠＄悊鏉冮檺銆?     *
+     * @param agent 鏅鸿兘浣?     * @param userId 褰撳墠鐢ㄦ埛 ID
      */
     private void checkManageAuth(Agent agent, String userId) {
-        boolean owner = agent.getUserId().equals(userId);
+        boolean owner = StrUtil.equals(agent.getUserId(), userId);
         boolean admin = isAdmin(userId);
         if (!owner && !admin) {
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权操作该智能体");
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "鏃犳潈鎿嶄綔璇ユ櫤鑳戒綋");
         }
     }
 
     /**
-     * 判断用户是否管理员。
-     *
-     * @param userId 用户 ID
-     * @return 是否管理员
-     */
+     * 鍒ゆ柇鐢ㄦ埛鏄惁绠＄悊鍛樸€?     *
+     * @param userId 鐢ㄦ埛 ID
+     * @return 鏄惁绠＄悊鍛?     */
     private boolean isAdmin(String userId) {
         if (StrUtil.isBlank(userId)) {
             return false;
@@ -452,10 +438,9 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
     }
 
     /**
-     * 获取可用模型。
-     *
-     * @param modelId 模型 ID
-     * @return 模型
+     * 鑾峰彇鍙敤妯″瀷銆?     *
+     * @param modelId 妯″瀷 ID
+     * @return 妯″瀷
      */
     private static final String DEFAULT_AGENT_MODEL_ID = "deepseek-chat";
 
@@ -467,22 +452,17 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
     }
 
     /**
-     * 获取温度默认值。
-     *
-     * @param temperature 请求温度
-     * @return 温度
+     * 鑾峰彇娓╁害榛樿鍊笺€?     *
+     * @param temperature 璇锋眰娓╁害
+     * @return 娓╁害
      */
     private BigDecimal resolveTemperature(BigDecimal temperature) {
         return temperature == null ? DEFAULT_TEMPERATURE : temperature;
     }
 
     /**
-     * 兼容 maxTokens 与历史 maxToken 字段。
-     *
-     * @param maxTokens 新字段值
-     * @param maxToken 旧字段值
-     * @return 最大 token 数
-     */
+     * 鍏煎 maxTokens 涓庡巻鍙?maxToken 瀛楁銆?     *
+     * @param maxTokens 鏂板瓧娈靛€?     * @param maxToken 鏃у瓧娈靛€?     * @return 鏈€澶?token 鏁?     */
     private Integer resolveMaxTokens(Integer maxTokens, Integer maxToken) {
         if (maxTokens != null) {
             return maxTokens;
@@ -494,20 +474,18 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
     }
 
     /**
-     * 规范页码。
-     *
-     * @param page 页码
-     * @return 页码
+     * 瑙勮寖椤电爜銆?     *
+     * @param page 椤电爜
+     * @return 椤电爜
      */
     private int normalizePage(int page) {
         return Math.max(page, 1);
     }
 
     /**
-     * 规范分页大小。
-     *
-     * @param size 分页大小
-     * @return 分页大小
+     * 瑙勮寖鍒嗛〉澶у皬銆?     *
+     * @param size 鍒嗛〉澶у皬
+     * @return 鍒嗛〉澶у皬
      */
     private int normalizePageSize(int size) {
         return Math.min(Math.max(size, 1), 50);

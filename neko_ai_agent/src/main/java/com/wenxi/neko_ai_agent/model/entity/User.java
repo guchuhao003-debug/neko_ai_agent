@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.time.LocalDate;
 import java.util.Date;
 
 /**
@@ -53,6 +54,21 @@ public class User implements Serializable {
      * 用户角色：user/admin
      */
     private String userRole;
+
+    /**
+     * 每日免费积分余额，每天凌晨重置为 100。
+     */
+    private Integer dailyQuota;
+
+    /**
+     * 兑换码等方式获得的额外积分余额，不随每日重置清零。
+     */
+    private Integer bonusQuota;
+
+    /**
+     * 每日积分最近重置日期。
+     */
+    private LocalDate quotaResetDate;
 
     /**
      * 编辑时间

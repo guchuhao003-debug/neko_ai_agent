@@ -8,10 +8,14 @@
             <id property="id" column="id" jdbcType="BIGINT"/>
             <result property="userAccount" column="userAccount" jdbcType="VARCHAR"/>
             <result property="userPassword" column="userPassword" jdbcType="VARCHAR"/>
+            <result property="userEmail" column="userEmail" jdbcType="VARCHAR"/>
             <result property="userName" column="userName" jdbcType="VARCHAR"/>
             <result property="userAvatar" column="userAvatar" jdbcType="VARCHAR"/>
             <result property="userProfile" column="userProfile" jdbcType="VARCHAR"/>
             <result property="userRole" column="userRole" jdbcType="VARCHAR"/>
+            <result property="dailyQuota" column="dailyQuota" jdbcType="INTEGER"/>
+            <result property="bonusQuota" column="bonusQuota" jdbcType="INTEGER"/>
+            <result property="quotaResetDate" column="quotaResetDate" jdbcType="DATE"/>
             <result property="editTime" column="editTime" jdbcType="TIMESTAMP"/>
             <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
             <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
@@ -20,8 +24,54 @@
 
     <sql id="Base_Column_List">
         id,userAccount,userPassword,
-        userName,userAvatar,userProfile,
-        userRole,editTime,createTime,
-        updateTime,isDelete
+        userEmail,userName,userAvatar,
+        userProfile,userRole,dailyQuota,
+        bonusQuota,quotaResetDate,editTime,
+        createTime,updateTime,isDelete
     </sql>
+
+    <update id="resetDailyQuotaIfNeeded">
+        UPDATE user
+        SET dailyQuota = #{dailyQuota},
+            quotaResetDate = #{today},
+            updateTime = NOW()
+        WHERE id = #{userId}
+          AND isDelete = 0
+          AND (quotaResetDate IS NULL OR quotaResetDate != #{today})
+    </update>
+
+    <update id="resetAllDailyQuota">
+        UPDATE user
+        SET dailyQuota = #{dailyQuota},
+            quotaResetDate = #{today},
+            updateTime = NOW()
+        WHERE isDelete = 0
+          AND (quotaResetDate IS NULL OR quotaResetDate != #{today})
+    </update>
+
+    <update id="deductQuota">
+        UPDATE user
+        SET bonusQuota = CASE
+                WHEN COALESCE(dailyQuota, 0) >= #{cost}
+                    THEN COALESCE(bonusQuota, 0)
+                ELSE COALESCE(bonusQuota, 0) - (#{cost} - COALESCE(dailyQuota, 0))
+            END,
+            dailyQuota = CASE
+                WHEN COALESCE(dailyQuota, 0) >= #{cost}
+                    THEN COALESCE(dailyQuota, 0) - #{cost}
+                ELSE 0
+            END,
+            updateTime = NOW()
+        WHERE id = #{userId}
+          AND isDelete = 0
+          AND (COALESCE(dailyQuota, 0) + COALESCE(bonusQuota, 0)) >= #{cost}
+    </update>
+
+    <update id="addBonusQuota">
+        UPDATE user
+        SET bonusQuota = COALESCE(bonusQuota, 0) + #{amount},
+            updateTime = NOW()
+        WHERE id = #{userId}
+          AND isDelete = 0
+    </update>
 </mapper>

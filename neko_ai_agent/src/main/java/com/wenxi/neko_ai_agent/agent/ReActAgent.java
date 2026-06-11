@@ -33,7 +33,7 @@ public abstract class ReActAgent extends BaseAgent {
             // 先思考
             boolean shouldAct = think();
             if(!shouldAct) {
-                return "思考完成 - 无需行动";
+                return getNoActionResult();
             }
             // 再行动
             return act();
@@ -41,5 +41,14 @@ public abstract class ReActAgent extends BaseAgent {
             // 记录异常日志
             throw new BusinessException(ErrorCode.SYSTEM_ERROR,"ReAct步骤执行失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * 获取无需继续调用工具时的步骤结果。
+     *
+     * @return 步骤结果
+     */
+    protected String getNoActionResult() {
+        return "思考完成 - 无需行动";
     }
 }

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import { getApiUrl } from '../api/http'
 import { getModelList } from '../api/model'
 import { useUser } from '../composables/useUser'
@@ -12,11 +13,55 @@ marked.setOptions({
   gfm: true,
 })
 
+const generatedFileResultPattern = new RegExp(
+  '(?:PDF generated successfully(?: to:)?|File written successfully(?: to)?|' +
+  'Resource downloaded successfully(?: to)?)[:.]?\\s*' +
+  '([A-Za-z]:[\\\\/][^\\n\\r]*?[\\\\/]tmp[\\\\/](pdf|file|download)' +
+  '[\\\\/]([^\\n\\r"\'<>]+))',
+  'gi'
+)
+
+const generatedFilePathPattern =
+  /([A-Za-z]:[\\/][^\n\r]*?[\\/]tmp[\\/](pdf|file|download)[\\/]([^\n\r"'<> )]+))/gi
+
+const getGeneratedFileLabel = (category, fileName) => {
+  if (category === 'pdf') return `打开 PDF：${fileName}`
+  if (category === 'download') return `打开下载文件：${fileName}`
+  return `打开文件：${fileName}`
+}
+
+const buildGeneratedFileMarkdown = (category, fileName) => {
+  const encodedFileName = encodeURIComponent(fileName)
+  const url = getApiUrl(`/files/${category}/${encodedFileName}`)
+  return `[${getGeneratedFileLabel(category, fileName)}](${url})`
+}
+
+const normalizeGeneratedFileReferences = (text) => {
+  // 将工具返回的本地路径转换为浏览器可打开的后端文件链接。
+  const withResultLinks = text.replace(
+    generatedFileResultPattern,
+    (_match, _path, category, fileName) =>
+      `文件已生成：${buildGeneratedFileMarkdown(category, fileName.trim())}`
+  )
+
+  return withResultLinks.replace(
+    generatedFilePathPattern,
+    (match, _path, category, fileName, offset, fullText) => {
+      const before = fullText.slice(Math.max(0, offset - 2), offset)
+      if (before === '](') return match
+      return buildGeneratedFileMarkdown(category, fileName.trim())
+    }
+  )
+}
+
+const addSafeLinkAttrs = (html) =>
+  html.replace(/<a\s+/g, '<a target="_blank" rel="noopener noreferrer" ')
+
 const renderMarkdown = (text) => {
   if (!text) return ''
   // Normalize literal \n sequences to real newlines for proper markdown parsing
-  const normalized = text.replace(/\\n/g, '\n')
-  return marked.parse(normalized)
+  const normalized = normalizeGeneratedFileReferences(text.replace(/\\n/g, '\n'))
+  return addSafeLinkAttrs(DOMPurify.sanitize(marked.parse(normalized)))
 }
 
 const props = defineProps({
@@ -32,6 +77,7 @@ const props = defineProps({
   appType: { type: String, default: '' },
   showModelSelector: { type: Boolean, default: false },
   extraParams: { type: Object, default: () => ({}) },
+  streamMethod: { type: String, default: 'get' },
 })
 
 const emit = defineEmits(['update:chatId'])
@@ -52,6 +98,8 @@ let hasReceivedAiContent = false
 let lastStepText = ''
 let manualStopRequested = false
 let hasFinalResult = false
+let messageSeq = 0
+let finalCloseTimer = null
 
 // Step thinking mode state
 let stepThinkingIndex = -1
@@ -89,6 +137,11 @@ const formatTime = () => {
   return now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
+const createMessage = (message) => ({
+  id: `msg-${Date.now()}-${messageSeq++}`,
+  ...message,
+})
+
 const scrollToBottom = async () => {
   await nextTick()
   if (listRef.value) {
@@ -110,6 +163,13 @@ const stopTypewriter = () => {
   }
   typingQueue = []
   activeTypingTask = null
+}
+
+const clearFinalCloseTimer = () => {
+  if (finalCloseTimer) {
+    clearTimeout(finalCloseTimer)
+    finalCloseTimer = null
+  }
 }
 
 const extractChunkText = (rawData) => {
@@ -191,17 +251,18 @@ const finalizeStream = () => {
       }
 
       if (finalContent) {
-        messages.value.push({
+        messages.value.push(createMessage({
           role: 'ai',
           content: finalContent,
           time: formatTime(),
           isFinalResult: true,
-        })
+        }))
       }
     }
   }
 
   isLoading.value = false
+  clearFinalCloseTimer()
   stopTypewriter()
   streamEnded = false
   hasReceivedAiContent = false
@@ -219,6 +280,7 @@ const finalizeStream = () => {
 
 const stopGenerating = () => {
   manualStopRequested = true
+  clearFinalCloseTimer()
   closeCurrentStream()
   stopTypewriter()
   // 标记 thinking 消息为已停止
@@ -231,12 +293,12 @@ const stopGenerating = () => {
     }
   } else {
     // 非 stepBubbleMode 时才显示停止提示
-    messages.value.push({
+    messages.value.push(createMessage({
       role: 'ai',
       content: '已停止生成回复。',
       time: formatTime(),
       isStopNotice: true,
-    })
+    }))
   }
   isLoading.value = false
   streamEnded = false
@@ -279,6 +341,37 @@ const flushTypewriter = () => {
   }
 }
 
+const appendTypingTaskText = (task, count) => {
+  if (!task || !task.text) return
+  const text = task.text.slice(0, count)
+  if (task.isStep) {
+    const thinkingMsg = messages.value[task.aiIndex]
+    if (thinkingMsg && thinkingMsg.steps) {
+      const stepIdx = task.stepIdx
+      thinkingMsg.steps[stepIdx] = (thinkingMsg.steps[stepIdx] || '') + text
+    }
+  } else if (messages.value[task.aiIndex]) {
+    messages.value[task.aiIndex].content += text
+  }
+  task.text = task.text.slice(count)
+}
+
+const flushTypewriterImmediately = () => {
+  if (typingTimer) {
+    clearInterval(typingTimer)
+    typingTimer = null
+  }
+  if (activeTypingTask) {
+    appendTypingTaskText(activeTypingTask, activeTypingTask.text.length)
+    activeTypingTask = null
+  }
+  while (typingQueue.length > 0) {
+    const task = typingQueue.shift()
+    appendTypingTaskText(task, task.text.length)
+  }
+  scrollToBottom()
+}
+
 const enqueueChunk = (chunk, aiIndex, isStep = false, stepIdx = 0) => {
   typingQueue.push({ aiIndex, text: chunk, isStep, stepIdx })
   hasReceivedAiContent = true
@@ -287,8 +380,14 @@ const enqueueChunk = (chunk, aiIndex, isStep = false, stepIdx = 0) => {
   }
 }
 
-const markStreamEnded = () => {
+const markStreamEnded = (flushImmediately = false) => {
+  clearFinalCloseTimer()
   streamEnded = true
+  if (flushImmediately) {
+    flushTypewriterImmediately()
+    finalizeStream()
+    return
+  }
   flushTypewriter()
 }
 
@@ -302,13 +401,19 @@ const appendFinalResult = (content) => {
       thinkingMsg.thinkingCollapsed = true
     }
   }
-  const finalIndex = messages.value.push({
+  const finalIndex = messages.value.push(createMessage({
     role: 'ai',
     content: '',
     time: formatTime(),
     isFinalResult: true,
-  }) - 1
+  })) - 1
   enqueueChunk(content, finalIndex)
+  clearFinalCloseTimer()
+  finalCloseTimer = setTimeout(() => {
+    if (isLoading.value && hasFinalResult && !manualStopRequested) {
+      markStreamEnded(true)
+    }
+  }, 1500)
 }
 
 const copySessionId = () => {
@@ -357,7 +462,8 @@ const switchToHistory = async (chatId) => {
       activeChatId.value = detail.chatId
       emit('update:chatId', detail.chatId)
       // 加载历史消息
-      messages.value = (detail.messages || []).map(m => ({
+      messages.value = (detail.messages || []).map((m, index) => ({
+        id: `${detail.chatId}-${index}-${m.role}-${m.time || ''}`,
         role: m.role,
         content: m.content,
         time: m.time || '',
@@ -456,6 +562,7 @@ const selectedModelName = computed(() => {
 })
 
 const sendMessage = async () => {
+  if (isLoading.value) return
   const message = inputText.value.trim()
   if (!message) return
 
@@ -471,22 +578,22 @@ const sendMessage = async () => {
   isLoading.value = true
 
   const now = formatTime()
-  messages.value.push({
+  messages.value.push(createMessage({
     role: 'user',
     content: message,
     time: now,
-  })
+  }))
 
   let aiIndex = -1
   if (!props.stepBubbleMode) {
-    aiIndex = messages.value.push({
+    aiIndex = messages.value.push(createMessage({
       role: 'ai',
       content: '',
       time: now,
-    }) - 1
+    })) - 1
   } else {
     // Create a thinking container message
-    stepThinkingIndex = messages.value.push({
+    stepThinkingIndex = messages.value.push(createMessage({
       role: 'ai',
       content: '',
       time: now,
@@ -494,7 +601,7 @@ const sendMessage = async () => {
       thinkingDone: false,
       thinkingCollapsed: false,
       steps: [],
-    }) - 1
+    })) - 1
   }
 
   inputText.value = ''
@@ -509,14 +616,12 @@ const sendMessage = async () => {
   }
 
   const sseUrl = getApiUrl(props.ssePath, params)
-  // 自定义智能体接口依赖 Session 登录态，跨端口 SSE 必须显式携带 Cookie。
-  source = new EventSource(sseUrl, { withCredentials: true })
 
   const handleIncomingEvent = (event) => {
     if (manualStopRequested) return
     const chunk = extractChunkText(event.data)
     if (chunk === null) {
-      markStreamEnded()
+      markStreamEnded(hasFinalResult)
       return
     }
     if (chunk) {
@@ -548,6 +653,78 @@ const sendMessage = async () => {
     }
   }
 
+  const startPostStream = async () => {
+    const controller = new AbortController()
+    source = {
+      close: () => controller.abort(),
+      readyState: EventSource.CLOSED,
+    }
+
+    try {
+      const response = await fetch(getApiUrl(props.ssePath), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+        signal: controller.signal,
+      })
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder('utf-8')
+      let buffer = ''
+
+      const dispatchFrame = (frame) => {
+        if (!frame.trim()) return
+        let eventName = 'message'
+        const dataLines = []
+        for (const line of frame.split(/\r?\n/)) {
+          if (line.startsWith('event:')) {
+            eventName = line.slice(6).trim()
+          } else if (line.startsWith('data:')) {
+            dataLines.push(line.slice(5).trimStart())
+          }
+        }
+        const data = dataLines.length > 0 ? dataLines.join('\n') : frame.trim()
+        if (eventName === 'final') {
+          handleFinalEvent({ data })
+        } else if (eventName === 'done' || eventName === 'complete') {
+          markStreamEnded(true)
+        } else {
+          handleIncomingEvent({ data })
+        }
+      }
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const frames = buffer.split(/\r?\n\r?\n/)
+        buffer = frames.pop() || ''
+        frames.forEach(dispatchFrame)
+      }
+      if (buffer.trim()) dispatchFrame(buffer)
+      markStreamEnded(true)
+    } catch (error) {
+      if (manualStopRequested || error.name === 'AbortError') return
+      messages.value.push(createMessage({
+        role: 'ai',
+        content: '连接中断，请稍后重试。',
+        time: formatTime(),
+      }))
+      markStreamEnded()
+    }
+  }
+
+  if (props.streamMethod.toLowerCase() === 'post') {
+    startPostStream()
+    return
+  }
+
+  // SSE 对话接口依赖 Session 登录态，跨端请求必须显式携带 Cookie。
+  source = new EventSource(sseUrl, { withCredentials: true })
   source.addEventListener('message', handleIncomingEvent)
   source.addEventListener('step', handleIncomingEvent)
   source.addEventListener('token', handleIncomingEvent)
@@ -557,24 +734,24 @@ const sendMessage = async () => {
   source.addEventListener('answer', handleIncomingEvent)
   source.addEventListener('final', handleFinalEvent)
 
-  source.addEventListener('done', () => { markStreamEnded() })
-  source.addEventListener('complete', () => { markStreamEnded() })
+  source.addEventListener('done', () => { markStreamEnded(true) })
+  source.addEventListener('complete', () => { markStreamEnded(true) })
 
   source.onerror = () => {
     if (manualStopRequested) return
     const isConnectionClosed = source?.readyState === EventSource.CLOSED
     if (isConnectionClosed && hasReceivedAiContent) {
-      markStreamEnded()
+      markStreamEnded(true)
       return
     }
     if (!hasReceivedAiContent) {
-      messages.value.push({
+      messages.value.push(createMessage({
         role: 'ai',
         content: '连接中断，请稍后重试。',
         time: formatTime(),
-      })
+      }))
     }
-    markStreamEnded()
+    markStreamEnded(hasReceivedAiContent)
   }
 }
 
@@ -604,6 +781,11 @@ watch(() => currentUser.value, (newVal) => {
 onBeforeUnmount(() => {
   closeCurrentStream()
   stopTypewriter()
+  clearFinalCloseTimer()
+  if (modelToastTimer.value) {
+    clearTimeout(modelToastTimer.value)
+    modelToastTimer.value = null
+  }
   document.removeEventListener('click', closeModelDropdown)
 })
 </script>
@@ -675,9 +857,9 @@ onBeforeUnmount(() => {
               <path d="M2 4h14M2 9h14M2 14h14" />
             </svg>
           </button>
-          <router-link to="/" class="back-btn">
+          <router-link to="/ai-agents" class="back-btn">
             <span class="back-arrow">‹</span>
-            <span>返回主页</span>
+            <span>返回 AI 智能体</span>
           </router-link>
         </div>
 
@@ -705,7 +887,7 @@ onBeforeUnmount(() => {
 
         <div
           v-for="(item, idx) in messages"
-          :key="idx"
+          :key="item.id"
           class="message-row"
           :class="item.role === 'user' ? 'is-user' : 'is-ai'"
         >

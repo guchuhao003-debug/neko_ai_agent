@@ -7,7 +7,7 @@ const chatId = ref(crypto.randomUUID())
 
 <template>
   <ChatRoom
-    title="AI 恋爱大师"
+    title="心屿树洞"
     session-title="恋爱咨询 · 初次见面建议"
     :session-id="chatId"
     sse-path="/ai/love_app/chat/sse"

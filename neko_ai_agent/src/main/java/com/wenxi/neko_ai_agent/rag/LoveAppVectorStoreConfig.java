@@ -7,6 +7,7 @@ import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -22,6 +23,8 @@ import java.util.List;
  * 删除持久化文件即可在下次启动时强制重建。
  */
 @Configuration
+@ConditionalOnProperty(prefix = "neko.rag.vector-store", name = "type",
+        havingValue = "simple", matchIfMissing = true)
 @Slf4j
 public class LoveAppVectorStoreConfig {
 

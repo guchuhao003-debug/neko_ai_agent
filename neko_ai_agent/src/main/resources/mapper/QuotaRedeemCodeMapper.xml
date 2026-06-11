@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wenxi.neko_ai_agent.mapper.QuotaRedeemCodeMapper">
+
+    <resultMap id="BaseResultMap"
+               type="com.wenxi.neko_ai_agent.model.entity.QuotaRedeemCode">
+        <id property="id" column="id" jdbcType="BIGINT"/>
+        <result property="code" column="code" jdbcType="VARCHAR"/>
+        <result property="quotaAmount" column="quotaAmount" jdbcType="INTEGER"/>
+        <result property="status" column="status" jdbcType="VARCHAR"/>
+        <result property="expireTime" column="expireTime" jdbcType="TIMESTAMP"/>
+        <result property="usedUserId" column="usedUserId" jdbcType="BIGINT"/>
+        <result property="usedTime" column="usedTime" jdbcType="TIMESTAMP"/>
+        <result property="createUserId" column="createUserId" jdbcType="BIGINT"/>
+        <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
+        <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
+        <result property="isDelete" column="isDelete" jdbcType="TINYINT"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,code,quotaAmount,status,
+        expireTime,usedUserId,usedTime,
+        createUserId,createTime,updateTime,isDelete
+    </sql>
+</mapper>

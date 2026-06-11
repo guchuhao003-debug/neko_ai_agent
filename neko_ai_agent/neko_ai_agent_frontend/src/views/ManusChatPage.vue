@@ -11,6 +11,7 @@ const chatId = ref(`MANUS-${Date.now()}`)
     session-title="超级智能体任务会话"
     :session-id="chatId"
     sse-path="/ai/manus/chat"
+    :use-chat-id="true"
     :step-bubble-mode="true"
     v-model:chat-id="chatId"
     ai-name="NekoMenus"

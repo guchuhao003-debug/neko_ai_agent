@@ -73,6 +73,30 @@ logging:
 
 neko:
   rag:
+    vector-store:
+      # simple: 本地 JSON 文件向量库；pgvector: PostgreSQL + pgvector 向量库。
+      type: simple
+    pgvector:
+      datasource:
+        # 生产环境建议使用环境变量覆盖，不要提交真实密码。
+        url: ${PGVECTOR_DATASOURCE_URL:jdbc:postgresql://localhost:5432/neko_vector}
+        username: ${PGVECTOR_DATASOURCE_USERNAME:postgres}
+        password: ${PGVECTOR_DATASOURCE_PASSWORD:postgres}
+        maximum-pool-size: ${PGVECTOR_DATASOURCE_MAXIMUM_POOL_SIZE:5}
+        minimum-idle: ${PGVECTOR_DATASOURCE_MINIMUM_IDLE:1}
+        connection-timeout: ${PGVECTOR_DATASOURCE_CONNECTION_TIMEOUT:30000}
+      schema-name: ${PGVECTOR_SCHEMA_NAME:public}
+      dimensions: ${PGVECTOR_DIMENSIONS:1536}
+      # 生产环境建议通过 SQL 迁移建表，避免应用多副本启动时抢建 schema。
+      initialize-schema: ${PGVECTOR_INITIALIZE_SCHEMA:false}
+      max-document-batch-size: ${PGVECTOR_MAX_DOCUMENT_BATCH_SIZE:10000}
+      love-table-name: ${PGVECTOR_LOVE_TABLE_NAME:love_vector_store}
+      pet-table-name: ${PGVECTOR_PET_TABLE_NAME:pet_vector_store}
     love-app:
       # 基础对话默认不强依赖向量检索，避免 Embedding 服务不可用时阻断聊天。
-      enabled: false
+      enabled: true
+    pet-app:
+      # 宠物 RAG 默认关闭，避免后端启动时切分文档并调用 Embedding。
+      enabled: true
+      document-pattern: file:resource/documents/pet_app/*.md
+      vector-store-file: tmp/vector_store/pet_app_vector_store.json

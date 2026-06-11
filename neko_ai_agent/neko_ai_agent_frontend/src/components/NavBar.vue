@@ -1,10 +1,11 @@
 <script setup>
-import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useUser } from '../composables/useUser'
 import { GlobalUpdateUser, uploadAvatar } from '../api/user'
 
 const router = useRouter()
+const route = useRoute()
 const { currentUser, fetchUser, logout } = useUser()
 
 const showDropdown = ref(false)
@@ -19,6 +20,9 @@ const avatarFileInput = ref(null)
 const avatarMsg = ref('')
 const avatarMsgType = ref('')
 
+// 仅在 AI 智能体入口页展示自定义智能体快捷入口。
+const showCustomAgentButton = computed(() => route.name === 'aiAgents')
+
 const editForm = ref({
   userName: '',
   userEmail: '',
@@ -27,12 +31,10 @@ const editForm = ref({
 
 onMounted(async () => {
   await fetchUser()
-  // 登录后自动弹出系统公告（延迟 3 秒）
+  // 登录成功后只自动弹出一次系统公告。
   if (sessionStorage.getItem('just_logged_in')) {
     sessionStorage.removeItem('just_logged_in')
-    setTimeout(() => {
-      showAnnouncementModal.value = true
-    }, 1000)
+    showAnnouncementModal.value = true
   }
 })
 
@@ -138,6 +140,16 @@ const goToAgentManage = () => {
   router.push('/admin/agents')
 }
 
+const goToQuota = () => {
+  closeDropdown()
+  router.push('/quota')
+}
+
+const goToQuotaCodeManage = () => {
+  closeDropdown()
+  router.push('/admin/quota-codes')
+}
+
 const getAvatarText = () => {
   if (!currentUser.value) return ''
   const name = currentUser.value.userName || currentUser.value.userAccount || ''
@@ -205,12 +217,26 @@ const handleAvatarChange = async (event) => {
       <!-- Right Section -->
       <div class="navbar-right">
         <!-- Custom Agent Button -->
-        <router-link to="/agents" class="navbar-agent-btn" title="自定义智能体">
+        <router-link
+          v-if="showCustomAgentButton"
+          to="/agents"
+          class="navbar-agent-btn"
+          title="自定义智能体"
+        >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M12 3l7 4v6c0 4.2-2.8 7.2-7 8-4.2-.8-7-3.8-7-8V7l7-4z" />
             <path d="M9 12h6M12 9v6" />
           </svg>
           <span>自定义智能体</span>
+        </router-link>
+
+        <!-- Quota Button -->
+        <router-link v-if="currentUser" to="/quota" class="navbar-docs-btn" title="积分配额">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="12" r="8" />
+            <path d="M12 7v10M8 10h6a2 2 0 0 1 0 4H10" />
+          </svg>
+          <span>积分 {{ currentUser.totalQuota ?? 0 }}</span>
         </router-link>
 
         <!-- Announcement Button -->
@@ -269,6 +295,13 @@ const handleAvatarChange = async (event) => {
                 </svg>
                 <span>我的中心</span>
               </button>
+              <button class="dropdown-item" @click="goToQuota">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="8" />
+                  <path d="M12 7v10M8 10h6a2 2 0 0 1 0 4H10" />
+                </svg>
+                <span>积分配额</span>
+              </button>
               <button v-if="currentUser.userRole === 'admin'" class="dropdown-item" @click="goToUserManage">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -287,6 +320,13 @@ const handleAvatarChange = async (event) => {
                   <path d="M9 17h6" />
                 </svg>
                 <span>智能体管理</span>
+              </button>
+              <button v-if="currentUser.userRole === 'admin'" class="dropdown-item" @click="goToQuotaCodeManage">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="5" width="18" height="14" rx="2" />
+                  <path d="M7 9h10M7 13h6M16 13h1" />
+                </svg>
+                <span>兑换码管理</span>
               </button>
               <button class="dropdown-item dropdown-item-danger" @click="handleLogout">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -489,41 +529,67 @@ const handleAvatarChange = async (event) => {
           </button>
 
           <div class="announcement-header">
-            <svg class="announcement-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <svg
+              class="announcement-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
               <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
             </svg>
-            <h2 class="announcement-title">Neko AI Agent 系统公告</h2>
+            <h2 class="announcement-title">Neko AI Agent 公告</h2>
             <span class="announcement-badge">v1.0.0</span>
           </div>
 
           <div class="announcement-body">
             <div class="announcement-section">
-              <h3>Neko AI Agent v1.0.0 正式发布</h3>
+              <h3>Neko AI Agent 1.0.0 正式发布</h3>
               <p class="announcement-date">发布日期：2026 年 5 月</p>
-              <p>我们很高兴地宣布，<strong>Neko AI Agent 智能体平台</strong> 1.0.0 版本正式上线！这是一个基于 Spring AI + Vue 3 构建的多智能体协作平台，为用户提供多场景 AI 对话体验。</p>
+              <p>
+                <strong>Neko AI Agent</strong> 是一个面向真实使用场景的多智能体
+                AI 平台。本版本提供专家咨询、任务执行、自定义智能体、历史会话、
+                积分配额和后台管理能力，帮助用户在统一入口中完成咨询、创作、
+                信息整理和复杂任务处理。
+              </p>
             </div>
 
             <div class="announcement-section">
-              <h3>核心功能</h3>
+              <h3>1.0.0 功能特性</h3>
               <ul>
-                <li><strong>AI 恋爱大师</strong> — 基于 RAG 增强检索，融合情感分析与多轮对话记忆，提供专业恋爱咨询建议</li>
-                <li><strong>NekoMenus 超级智能体</strong> — 采用 ReAct 推理-行动模式，支持联网搜索、文件操作、PDF 生成、邮件发送等 10+ 工具的自主规划与执行</li>
-                <li><strong>AI 宠物专家</strong> — 集成 MCP 协议连接高德地图等外部服务，结合文件记忆系统，提供科学养宠建议</li>
+                <li><strong>心屿树洞</strong>：提供恋爱、沟通和关系困惑场景的多轮咨询。</li>
+                <li><strong>宠爱智问</strong>：围绕喂养、健康、训练和日常护理给出养宠建议。</li>
+                <li><strong>NekoMenus</strong>：支持搜索、文件处理、资源下载、PDF 生成和邮件发送。</li>
+                <li><strong>自定义智能体</strong>：可配置头像、提示词、模型、温度、公开状态和启用状态。</li>
+                <li><strong>历史会话</strong>：按会话保存上下文，支持继续查看、切换和删除记录。</li>
+                <li><strong>积分配额</strong>：每日免费积分自动刷新，管理员可发放积分兑换码。</li>
               </ul>
             </div>
 
             <div class="announcement-section">
-              <h3>技术亮点</h3>
+              <h3>体验升级</h3>
               <ul>
-                <li>SSE 实时流式输出，打字机效果逐字呈现</li>
-                <li>深度思考面板：可视化 Agent 推理过程，支持折叠展开</li>
-                <li>Markdown 渲染：AI 回复支持结构化格式输出</li>
-                <li>MCP 协议集成：标准化连接第三方工具与服务</li>
-                <li>会话记忆：基于文件持久化的多轮对话上下文</li>
+                <li>SSE 实时流式输出，回答边生成边展示，聊天体验更连贯。</li>
+                <li>Markdown 安全渲染，列表、代码块和链接内容更容易阅读。</li>
+                <li>超级智能体提供步骤化执行结果，便于理解复杂任务处理过程。</li>
+                <li>登录态、管理员权限和敏感操作确认共同保护平台数据边界。</li>
+                <li>头像上传、文件访问和 COS 存储让个性化资料与结果交付更完整。</li>
               </ul>
             </div>
 
-            <p class="announcement-footer-text">感谢你使用 Neko AI Agent，期待你的反馈与建议！</p>
+            <div class="announcement-section">
+              <h3>使用建议</h3>
+              <ul>
+                <li>提问时尽量说明背景、目标和限制，智能体会给出更稳定的回答。</li>
+                <li>涉及医疗、法律、财务和安全风险的问题，请以专业人士意见为准。</li>
+                <li>不要在对话或自定义提示词中填写密码、密钥和个人敏感信息。</li>
+              </ul>
+            </div>
+
+            <p class="announcement-footer-text">
+              感谢你使用 Neko AI Agent。欢迎从首页进入不同智能体，体验 1.0.0
+              版本的完整能力。
+            </p>
           </div>
         </div>
       </div>
